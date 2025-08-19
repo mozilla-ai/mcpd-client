@@ -18,6 +18,8 @@ import {
   Card,
   Row,
   Col,
+  Collapse,
+  Empty,
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,8 +27,15 @@ import {
   CodeOutlined,
   SettingOutlined,
   InfoCircleOutlined,
+  DatabaseOutlined,
+  CloudOutlined,
+  GithubOutlined,
+  MessageOutlined,
+  FileOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import MonacoEditor from '@monaco-editor/react';
+import { MCP_SERVERS, MCPServerTemplate, getServersByCategory, searchServers } from '../data/mcp-servers';
 
 const { TextArea } = Input;
 const { Text, Paragraph, Title } = Typography;
@@ -62,25 +71,25 @@ interface RegistryServer {
 
 const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuccess }) => {
   const [form] = Form.useForm();
-  const [mode, setMode] = useState<'registry' | 'custom'>('registry');
-  const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<RegistryServer[]>([]);
-  const [selectedServer, setSelectedServer] = useState<RegistryServer | null>(null);
-  const [selectedRuntime, setSelectedRuntime] = useState<string>('');
+  const [mode, setMode] = useState<'browse' | 'custom'>('browse');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedServer, setSelectedServer] = useState<MCPServerTemplate | null>(null);
+  const [selectedRuntime, setSelectedRuntime] = useState<'npx' | 'uvx' | 'docker'>('npx');
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [tomlPreview, setTomlPreview] = useState('');
   const [adding, setAdding] = useState(false);
+  
+  const serversByCategory = getServersByCategory();
+  const filteredServers = searchQuery ? searchServers(searchQuery) : MCP_SERVERS;
 
   useEffect(() => {
     if (!visible) {
       // Reset state when modal closes
       form.resetFields();
-      setMode('registry');
+      setMode('browse');
       setSelectedServer(null);
       setSelectedTools([]);
-      setSearchResults([]);
-      setShowAdvanced(false);
+      setSearchQuery('');
       setTomlPreview('');
     }
   }, [visible, form]);
@@ -89,37 +98,62 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
     updateTomlPreview();
   }, [selectedServer, selectedRuntime, selectedTools, form]);
 
-  const searchServers = async (query: string) => {
-    setSearching(true);
-    try {
-      const results = await window.electronAPI.searchServers(query || '*');
-      setSearchResults(Array.isArray(results) ? results : []);
-    } catch (error) {
-      console.error('Failed to search servers:', error);
-      message.error('Failed to search servers');
-    } finally {
-      setSearching(false);
-    }
+  const getCategoryIcon = (category: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      'Development': <GithubOutlined />,
+      'Database': <DatabaseOutlined />,
+      'Cloud Storage': <CloudOutlined />,
+      'Communication': <MessageOutlined />,
+      'File Management': <FileOutlined />,
+      'Web & Search': <GlobalOutlined />,
+      'Utilities': <SettingOutlined />,
+    };
+    return icons[category] || <CodeOutlined />;
   };
 
-  const selectServer = (server: RegistryServer) => {
+  const selectServer = (server: MCPServerTemplate) => {
     setSelectedServer(server);
     
-    // Auto-select runtime if only one available
-    if (server.runtimes && server.runtimes.length === 1) {
-      setSelectedRuntime(server.runtimes[0].package);
+    // Determine available runtime
+    const availableRuntimes = Object.keys(server.package).filter(rt => 
+      server.package[rt as keyof typeof server.package]
+    );
+    
+    if (availableRuntimes.length > 0) {
+      setSelectedRuntime(availableRuntimes[0] as 'npx' | 'uvx' | 'docker');
     }
     
     // Auto-select all tools by default
-    if (server.tools) {
-      setSelectedTools(server.tools);
-    }
+    setSelectedTools(server.tools.map(t => t.name));
+
+    // Get the package string for the selected runtime
+    const packageString = server.package[selectedRuntime as keyof typeof server.package] || '';
 
     // Pre-fill form with server details
     form.setFieldsValue({
-      name: server.name,
-      package: server.runtimes?.[0]?.package || '',
+      name: server.id,
+      package: packageString,
     });
+
+    // Set environment variables if any
+    if (server.environmentVariables) {
+      const envVars: Record<string, string> = {};
+      server.environmentVariables.forEach(env => {
+        if (env.required) {
+          envVars[env.name] = '';
+        }
+      });
+      form.setFieldsValue({ envVars });
+    }
+
+    // Set arguments if any
+    if (server.arguments) {
+      const args = server.arguments
+        .filter(arg => arg.required)
+        .map(arg => `${arg.name}=${arg.example || ''}`)
+        .join(', ');
+      form.setFieldsValue({ args });
+    }
   };
 
   const updateTomlPreview = () => {
@@ -183,57 +217,125 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
     }
   };
 
-  const renderRegistryMode = () => (
+  const renderBrowseMode = () => (
     <div>
       <Input.Search
-        placeholder="Search for MCP servers (e.g., github, filesystem, slack)"
-        onSearch={searchServers}
-        enterButton={<SearchOutlined />}
-        loading={searching}
+        placeholder="Filter servers by name, category, or tool..."
+        onChange={(e) => setSearchQuery(e.target.value)}
+        value={searchQuery}
         style={{ marginBottom: 16 }}
+        allowClear
       />
 
-      {searchResults.length > 0 && (
-        <List
-          dataSource={searchResults}
-          loading={searching}
-          style={{ maxHeight: 300, overflow: 'auto', marginBottom: 16 }}
-          renderItem={(server) => (
-            <List.Item
-              onClick={() => selectServer(server)}
-              style={{
-                cursor: 'pointer',
-                background: selectedServer?.id === server.id ? '#1890ff20' : 'transparent',
-                padding: 12,
-                borderRadius: 4,
-              }}
-            >
-              <List.Item.Meta
-                title={
-                  <Space>
-                    {server.name}
-                    {server.official && <Tag color="blue">Official</Tag>}
-                    {server.license && <Tag>{server.license}</Tag>}
-                  </Space>
-                }
-                description={
-                  <div>
-                    <Paragraph ellipsis={{ rows: 2 }}>
-                      {server.description}
-                    </Paragraph>
-                    {server.categories && (
-                      <Space wrap>
-                        {server.categories.map(cat => (
-                          <Tag key={cat} color="default">{cat}</Tag>
-                        ))}
+      {searchQuery && filteredServers.length === 0 ? (
+        <Empty description={`No servers found matching "${searchQuery}"`} />
+      ) : (
+        <div style={{ maxHeight: 400, overflow: 'auto' }}>
+          {searchQuery ? (
+            // Show filtered results as a flat list
+            <List
+              dataSource={filteredServers}
+              renderItem={(server) => (
+                <List.Item
+                  onClick={() => selectServer(server)}
+                  style={{
+                    cursor: 'pointer',
+                    background: selectedServer?.id === server.id ? '#1890ff20' : 'transparent',
+                    padding: 12,
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                >
+                  <List.Item.Meta
+                    avatar={getCategoryIcon(server.category)}
+                    title={
+                      <Space>
+                        {server.name}
+                        {server.official && <Tag color="blue">Official</Tag>}
+                        <Tag color="default">{server.category}</Tag>
                       </Space>
+                    }
+                    description={
+                      <div>
+                        <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 8 }}>
+                          {server.description}
+                        </Paragraph>
+                        <Space wrap size="small">
+                          {server.tools.slice(0, 3).map(tool => (
+                            <Tag key={tool.name} color="geekblue" style={{ fontSize: 11 }}>
+                              {tool.name}
+                            </Tag>
+                          ))}
+                          {server.tools.length > 3 && (
+                            <Tag style={{ fontSize: 11 }}>+{server.tools.length - 3} more</Tag>
+                          )}
+                        </Space>
+                      </div>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          ) : (
+            // Show categorized view
+            <Collapse defaultActiveKey={Object.keys(serversByCategory)} ghost>
+              {Object.entries(serversByCategory).map(([category, servers]) => (
+                <Collapse.Panel
+                  key={category}
+                  header={
+                    <Space>
+                      {getCategoryIcon(category)}
+                      <Text strong>{category}</Text>
+                      <Tag>{servers.length} servers</Tag>
+                    </Space>
+                  }
+                >
+                  <List
+                    dataSource={servers}
+                    renderItem={(server) => (
+                      <List.Item
+                        onClick={() => selectServer(server)}
+                        style={{
+                          cursor: 'pointer',
+                          background: selectedServer?.id === server.id ? '#1890ff20' : 'transparent',
+                          padding: 12,
+                          borderRadius: 4,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <List.Item.Meta
+                          title={
+                            <Space>
+                              {server.name}
+                              {server.official && <Tag color="blue" style={{ fontSize: 11 }}>Official</Tag>}
+                            </Space>
+                          }
+                          description={
+                            <div>
+                              <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 8, fontSize: 13 }}>
+                                {server.description}
+                              </Paragraph>
+                              <Space wrap size="small">
+                                {server.tools.slice(0, 4).map(tool => (
+                                  <Tag key={tool.name} color="geekblue" style={{ fontSize: 11 }}>
+                                    {tool.name}
+                                  </Tag>
+                                ))}
+                                {server.tools.length > 4 && (
+                                  <Tag style={{ fontSize: 11 }}>+{server.tools.length - 4} more</Tag>
+                                )}
+                              </Space>
+                            </div>
+                          }
+                        />
+                      </List.Item>
                     )}
-                  </div>
-                }
-              />
-            </List.Item>
+                  />
+                </Collapse.Panel>
+              ))}
+            </Collapse>
           )}
-        />
+        </div>
       )}
 
       {selectedServer && (
@@ -252,19 +354,27 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
               label="Package"
               rules={[{ required: true, message: 'Please select or enter a package' }]}
             >
-              {selectedServer.runtimes && selectedServer.runtimes.length > 1 ? (
+              {Object.keys(selectedServer.package).length > 1 ? (
                 <Select
                   placeholder="Select runtime package"
-                  onChange={setSelectedRuntime}
+                  value={selectedRuntime}
+                  onChange={(value) => {
+                    setSelectedRuntime(value);
+                    const pkg = selectedServer.package[value as keyof typeof selectedServer.package];
+                    form.setFieldValue('package', `${value}::${pkg}`);
+                  }}
                 >
-                  {selectedServer.runtimes.map(rt => (
-                    <Select.Option key={rt.package} value={rt.package}>
-                      {rt.runtime}: {rt.package} @ {rt.version}
+                  {Object.entries(selectedServer.package).map(([runtime, pkg]) => (
+                    <Select.Option key={runtime} value={runtime}>
+                      {runtime}: {pkg}
                     </Select.Option>
                   ))}
                 </Select>
               ) : (
-                <Input placeholder="e.g., npx::@modelcontextprotocol/server-github" />
+                <Input 
+                  value={`${selectedRuntime}::${selectedServer.package[selectedRuntime as keyof typeof selectedServer.package]}`}
+                  disabled 
+                />
               )}
             </Form.Item>
 
@@ -277,8 +387,10 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
                 >
                   <Row>
                     {selectedServer.tools.map(tool => (
-                      <Col span={12} key={tool}>
-                        <Checkbox value={tool}>{tool}</Checkbox>
+                      <Col span={12} key={tool.name}>
+                        <Checkbox value={tool.name}>
+                          <span title={tool.description}>{tool.name}</span>
+                        </Checkbox>
                       </Col>
                     ))}
                   </Row>
@@ -299,20 +411,37 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
                       </Space>
                     }
                     help={env.description}
+                    rules={env.required ? [{ required: true, message: `${env.name} is required` }] : []}
                   >
-                    <Input.Password placeholder={`Enter ${env.name}`} />
+                    <Input.Password 
+                      placeholder={env.example ? `e.g., ${env.example}` : `Enter ${env.name}`} 
+                    />
                   </Form.Item>
                 ))}
               </Form.Item>
             )}
 
-            <Form.Item
-              name="args"
-              label="Additional Arguments (comma-separated)"
-              help="e.g., --directory=/tmp, --port=3000"
-            >
-              <Input placeholder="Optional command-line arguments" />
-            </Form.Item>
+            {selectedServer.arguments && selectedServer.arguments.length > 0 && (
+              <Form.Item label="Arguments">
+                {selectedServer.arguments.map(arg => (
+                  <Form.Item
+                    key={arg.name}
+                    name={['args', arg.name]}
+                    label={
+                      <Space>
+                        {arg.name}
+                        {arg.required && <Tag color="red">Required</Tag>}
+                      </Space>
+                    }
+                    help={arg.description}
+                    rules={arg.required ? [{ required: true, message: `${arg.name} is required` }] : []}
+                    initialValue={arg.example}
+                  >
+                    <Input placeholder={arg.example || `Enter value for ${arg.name}`} />
+                  </Form.Item>
+                ))}
+              </Form.Item>
+            )}
           </Form>
         </Card>
       )}
@@ -392,9 +521,9 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
         </Button>,
       ]}
     >
-      <Tabs activeKey={mode} onChange={(key) => setMode(key as 'registry' | 'custom')}>
-        <TabPane tab="Registry Servers" key="registry">
-          {renderRegistryMode()}
+      <Tabs activeKey={mode} onChange={(key) => setMode(key as 'browse' | 'custom')}>
+        <TabPane tab="Browse Servers" key="browse">
+          {renderBrowseMode()}
         </TabPane>
         <TabPane tab="Custom Server" key="custom">
           {renderCustomMode()}
