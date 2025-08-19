@@ -9,9 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Server management
   listServers: () => ipcRenderer.invoke('servers:list'),
-  addServer: (name: string, packageName: string) => 
-    ipcRenderer.invoke('servers:add', name, packageName),
+  addServer: (server: any) => 
+    ipcRenderer.invoke('servers:add', server),
   removeServer: (name: string) => ipcRenderer.invoke('servers:remove', name),
+  searchServers: (query: string) => ipcRenderer.invoke('servers:search', query),
   getServerTools: (name: string) => ipcRenderer.invoke('servers:tools', name),
 
   // Tool execution

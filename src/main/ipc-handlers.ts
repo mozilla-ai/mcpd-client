@@ -22,12 +22,14 @@ export function setupIPC(mcpdManager: MCPDManager) {
   // Server management
   ipcMain.handle('servers:list', async () => {
     const serverNames = await mcpdManager.getServers();
+    const configuredServers = await mcpdManager.getConfiguredServers();
     const servers = [];
     
     for (const name of serverNames) {
+      const configServer = configuredServers.find(s => s.name === name);
       servers.push({
         name,
-        package: '', // Will be filled from config
+        package: configServer?.package || '',
         tools: [],
         status: 'running' as const,
         health: 'healthy' as const,
@@ -37,12 +39,16 @@ export function setupIPC(mcpdManager: MCPDManager) {
     return servers;
   });
 
-  ipcMain.handle('servers:add', async (_, name: string, packageName: string) => {
-    return await mcpdManager.addServer(name, packageName);
+  ipcMain.handle('servers:add', async (_, server: any) => {
+    return await mcpdManager.addServerToConfig(server);
   });
 
   ipcMain.handle('servers:remove', async (_, name: string) => {
-    return await mcpdManager.removeServer(name);
+    return await mcpdManager.removeServerFromConfig(name);
+  });
+
+  ipcMain.handle('servers:search', async (_, query: string) => {
+    return await mcpdManager.searchServers(query);
   });
 
   ipcMain.handle('servers:tools', async (_, name: string) => {

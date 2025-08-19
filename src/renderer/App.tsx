@@ -25,8 +25,9 @@ declare global {
       getDaemonStatus: () => Promise<DaemonStatus>;
       getDaemonLogs: (lines?: number) => Promise<string[]>;
       listServers: () => Promise<any[]>;
-      addServer: (name: string, packageName: string) => Promise<void>;
+      addServer: (server: any) => Promise<void>;
       removeServer: (name: string) => Promise<void>;
+      searchServers: (query: string) => Promise<any[]>;
       getServerTools: (name: string) => Promise<any[]>;
       callTool: (server: string, tool: string, args: any) => Promise<any>;
       loadConfig: () => Promise<any>;
