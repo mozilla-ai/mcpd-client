@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import axios, { AxiosInstance } from 'axios';
+import * as TOML from '@iarna/toml';
 import { DaemonStatus, MCPServer, MCPTool } from '@shared/types';
 
 export class MCPDManager {
@@ -278,5 +279,117 @@ export class MCPDManager {
 
   async saveConfig(content: string): Promise<void> {
     fs.writeFileSync(this.configPath, content);
+  }
+
+  async searchServers(query: string = '*'): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const proc = spawn('mcpd', ['search', query, '--format', 'json'], {
+        cwd: process.cwd(),
+      });
+
+      let output = '';
+      proc.stdout?.on('data', (data) => {
+        output += data.toString();
+      });
+
+      proc.on('exit', (code) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output);
+            resolve(results);
+          } catch (error) {
+            resolve([]);
+          }
+        } else {
+          resolve([]);
+        }
+      });
+    });
+  }
+
+  async addServerToConfig(server: {
+    name: string;
+    package: string;
+    tools?: string[];
+    requiredEnv?: string[];
+    requiredArgs?: string[];
+    requiredArgsPositional?: string[];
+    requiredArgsBool?: string[];
+  }): Promise<void> {
+    // Load existing config
+    const configContent = fs.readFileSync(this.configPath, 'utf-8');
+    const config = TOML.parse(configContent) as any;
+
+    // Ensure servers array exists
+    if (!config.servers) {
+      config.servers = [];
+    }
+
+    // Check for duplicate name
+    const exists = config.servers.some((s: any) => s.name === server.name);
+    if (exists) {
+      throw new Error(`Server with name '${server.name}' already exists`);
+    }
+
+    // Build new server entry
+    const newServer: any = {
+      name: server.name,
+      package: server.package,
+    };
+
+    if (server.tools && server.tools.length > 0) {
+      newServer.tools = server.tools;
+    }
+    if (server.requiredEnv && server.requiredEnv.length > 0) {
+      newServer.required_env = server.requiredEnv;
+    }
+    if (server.requiredArgs && server.requiredArgs.length > 0) {
+      newServer.required_args = server.requiredArgs;
+    }
+    if (server.requiredArgsPositional && server.requiredArgsPositional.length > 0) {
+      newServer.required_args_positional = server.requiredArgsPositional;
+    }
+    if (server.requiredArgsBool && server.requiredArgsBool.length > 0) {
+      newServer.required_args_bool = server.requiredArgsBool;
+    }
+
+    // Add to config
+    config.servers.push(newServer);
+
+    // Write back to file
+    const tomlString = TOML.stringify(config);
+    fs.writeFileSync(this.configPath, tomlString);
+  }
+
+  async removeServerFromConfig(name: string): Promise<void> {
+    // Load existing config
+    const configContent = fs.readFileSync(this.configPath, 'utf-8');
+    const config = TOML.parse(configContent) as any;
+
+    if (!config.servers) {
+      throw new Error('No servers configured');
+    }
+
+    // Filter out the server
+    const originalLength = config.servers.length;
+    config.servers = config.servers.filter((s: any) => s.name !== name);
+
+    if (config.servers.length === originalLength) {
+      throw new Error(`Server '${name}' not found`);
+    }
+
+    // Write back to file
+    const tomlString = TOML.stringify(config);
+    fs.writeFileSync(this.configPath, tomlString);
+  }
+
+  async getConfiguredServers(): Promise<any[]> {
+    if (!fs.existsSync(this.configPath)) {
+      return [];
+    }
+
+    const configContent = fs.readFileSync(this.configPath, 'utf-8');
+    const config = TOML.parse(configContent) as any;
+    return config.servers || [];
   }
 }
