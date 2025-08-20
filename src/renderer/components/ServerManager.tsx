@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Select, Tag, Space, message, Popconfirm } from 'antd';
+import { Card, Table, Button, Tag, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { MCPServer } from '@shared/types';
+import AddServerModal from './AddServerModal';
 
 const ServerManager: React.FC = () => {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [form] = Form.useForm();
 
   useEffect(() => {
     loadServers();
@@ -46,18 +46,6 @@ const ServerManager: React.FC = () => {
     }
   };
 
-  const handleAddServer = async (values: any) => {
-    try {
-      await window.electronAPI.addServer(values.name, values.package || values.name);
-      message.success(`Server ${values.name} added successfully`);
-      setAddModalVisible(false);
-      form.resetFields();
-      loadServers();
-    } catch (error) {
-      console.error('Failed to add server:', error);
-      message.error('Failed to add server');
-    }
-  };
 
   const handleRemoveServer = async (name: string) => {
     try {
@@ -125,16 +113,9 @@ const ServerManager: React.FC = () => {
     },
   ];
 
-  const popularServers = [
-    { value: 'time', label: 'Time Server' },
-    { value: 'github', label: 'GitHub Server' },
-    { value: 'filesystem', label: 'FileSystem Server' },
-    { value: 'slack', label: 'Slack Server' },
-    { value: 'google-drive', label: 'Google Drive Server' },
-  ];
-
   return (
-    <Card
+    <>
+      <Card
       title="MCP Servers"
       extra={
         <Space>
@@ -154,52 +135,17 @@ const ServerManager: React.FC = () => {
         loading={loading}
         pagination={false}
       />
-
-      <Modal
-        title="Add MCP Server"
-        open={addModalVisible}
-        onCancel={() => {
-          setAddModalVisible(false);
-          form.resetFields();
-        }}
-        footer={null}
-      >
-        <Form form={form} layout="vertical" onFinish={handleAddServer}>
-          <Form.Item
-            name="name"
-            label="Server Name"
-            rules={[{ required: true, message: 'Please select or enter a server name' }]}
-          >
-            <Select
-              showSearch
-              placeholder="Select a server or type custom name"
-              options={popularServers}
-              allowClear
-            />
-          </Form.Item>
-          <Form.Item
-            name="package"
-            label="Package (Optional)"
-            help="Leave empty to use default package for the server"
-          >
-            <Input placeholder="e.g., uvx::modelcontextprotocol/time-server@1.0.0" />
-          </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                Add Server
-              </Button>
-              <Button onClick={() => {
-                setAddModalVisible(false);
-                form.resetFields();
-              }}>
-                Cancel
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </Card>
+
+    <AddServerModal
+      visible={addModalVisible}
+      onClose={() => setAddModalVisible(false)}
+      onSuccess={() => {
+        setAddModalVisible(false);
+        loadServers();
+      }}
+    />
+    </>
   );
 };
 

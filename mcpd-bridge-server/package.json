@@ -1,0 +1,39 @@
+{
+  "name": "mcpd-bridge-server",
+  "version": "1.0.0",
+  "description": "Universal MCP bridge server that connects to MCPD daemon",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "mcpd-bridge": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "node test-bridge.js",
+    "prepare": "npm run build"
+  },
+  "keywords": ["mcp", "mcpd", "bridge", "ai", "llm", "claude", "anthropic"],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mcpd-client"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "claude-desktop-config.example.json"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

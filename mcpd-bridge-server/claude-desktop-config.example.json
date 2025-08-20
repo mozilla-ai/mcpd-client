@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mcpd-bridge": {
+      "command": "npx",
+      "args": ["mcpd-bridge-server"],
+      "env": {
+        "MCPD_URL": "http://localhost:8090"
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "mcpd-client",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
@@ -37,6 +37,13 @@
       "dist/**/*",
       "node_modules/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/",
+        "to": "resources/",
+        "filter": ["**/*"]
+      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

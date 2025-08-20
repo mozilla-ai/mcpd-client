@@ -8,6 +8,9 @@ let tray: Tray | null = null;
 let mcpdManager: MCPDManager;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -18,7 +21,7 @@ function createWindow() {
       webSecurity: true,
     },
     titleBarStyle: 'hiddenInset',
-    icon: path.join(__dirname, 'icon.png'),
+    icon: icon,
   });
 
   if (process.env.NODE_ENV === 'development') {
@@ -69,9 +72,20 @@ function createTray() {
     { type: 'separator' },
     {
       label: 'Quit',
-      click: () => {
+      click: async () => {
         (global as any).isQuitting = true;
+        try {
+          await mcpdManager.stopDaemon();
+        } catch (error) {
+          console.error('Error stopping daemon:', error);
+        }
         app.quit();
+      },
+    },
+    {
+      label: 'Force Quit',
+      click: () => {
+        app.exit(0);
       },
     },
   ]);
@@ -84,28 +98,44 @@ function createTray() {
   });
 }
 
-app.whenReady().then(() => {
-  // Configure CSP to allow Monaco Editor
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self' https://cdn.jsdelivr.net; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net blob:; " +
-          "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-          "font-src 'self' data: https://cdn.jsdelivr.net; " +
-          "worker-src 'self' blob:;"
-        ]
-      }
-    });
+// Prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to run a second instance, focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.show();
+    }
   });
 
-  mcpdManager = new MCPDManager();
-  setupIPC(mcpdManager);
-  createWindow();
-  createTray();
-});
+  app.whenReady().then(() => {
+    // Configure CSP to allow Monaco Editor
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' https://cdn.jsdelivr.net; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net blob:; " +
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+            "font-src 'self' data: https://cdn.jsdelivr.net; " +
+            "worker-src 'self' blob:;"
+          ]
+        }
+      });
+    });
+
+    mcpdManager = new MCPDManager();
+    setupIPC(mcpdManager);
+    createWindow();
+    createTray();
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -121,8 +151,16 @@ app.on('activate', () => {
   }
 });
 
-app.on('before-quit', async () => {
-  // Stop the daemon when quitting
-  await mcpdManager.stopDaemon();
+app.on('before-quit', async (event) => {
+  if (mcpdManager) {
+    event.preventDefault();
+    (global as any).isQuitting = true;
+    try {
+      await mcpdManager.stopDaemon();
+    } catch (error) {
+      console.error('Error stopping daemon during quit:', error);
+    }
+    app.exit(0);
+  }
 });
 
