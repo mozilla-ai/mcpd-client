@@ -122,9 +122,11 @@ class MCPHTTPEndpoint {
             jsonrpc: '2.0',
             id,
             result: {
-              protocolVersion: '1.0.0',
+              protocolVersion: '2024-11-05',
               capabilities: {
-                tools: {},
+                tools: {
+                  listChanged: true
+                },
                 resources: {},
                 prompts: {}
               },

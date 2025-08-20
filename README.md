@@ -99,15 +99,32 @@ The application consists of:
 
 ### Connect Tab - One-Click Setup
 
-The Connect tab provides the easiest way to integrate your MCP servers with various tools - no commands needed!
+The Connect tab provides the easiest way to integrate your MCP servers with various tools.
 
-#### Simple Button-Based Setup
-
+#### Option 1: Use the Buttons in the App
 For each configured server, just click a button:
-
 - **Connect to Claude Desktop** - Automatically configures claude_desktop_config.json
 - **Start HTTP Gateway** - Launches HTTP server and shows the API endpoint
 - **Connect to Cursor** - Coming soon with native Cursor support
+
+#### Option 2: Use the CLI Tool
+After running `./install-global.sh`, you can use these commands from anywhere:
+```bash
+# List available servers
+mcpd-setup list
+
+# Setup for Claude Desktop
+mcpd-setup filesystem --client claude
+
+# Start HTTP Gateway (local access)
+mcpd-setup filesystem --client http
+
+# Create public tunnel (for external services like Railway)
+mcpd-setup filesystem --client tunnel
+
+# Setup for Cursor (coming soon)
+mcpd-setup filesystem --client cursor
+```
 
 #### What Each Command Does
 
@@ -131,6 +148,14 @@ For each configured server, just click a button:
 - Provides REST API access for web applications
 - Compatible with Claude Code and other HTTP clients
 - Automatic server discovery and routing
+- CORS enabled for web app integration
+
+**Public Tunnel (Cloudflare):**
+- Creates a public URL for your MCP server
+- No account or authentication required
+- Perfect for Railway apps or external services
+- Automatic cloudflared installation
+- Example: `https://random-name.trycloudflare.com/partner/mcpd/{server}/mcp`
 
 #### Example Workflows
 

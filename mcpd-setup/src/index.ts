@@ -18,9 +18,9 @@ const program = new Command();
 // Client configuration paths
 const CLIENT_CONFIGS = {
   cursor: {
-    mac: path.join(os.homedir(), '.cursor', 'mcp', 'config.json'),
-    windows: path.join(os.homedir(), 'AppData', 'Roaming', 'Cursor', 'mcp', 'config.json'),
-    linux: path.join(os.homedir(), '.config', 'cursor', 'mcp', 'config.json')
+    mac: path.join(os.homedir(), '.cursor', 'mcp.json'),
+    windows: path.join(os.homedir(), 'AppData', 'Roaming', 'Cursor', 'mcp.json'),
+    linux: path.join(os.homedir(), '.config', 'cursor', 'mcp.json')
   },
   claude: {
     mac: path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
@@ -134,20 +134,138 @@ async function setupServer(server: string, client: string, options: any) {
       // For HTTP client, just provide the endpoint
       spinner.succeed(`HTTP endpoint ready for ${server} server`);
       
+      const localUrl = `http://localhost:3001/partner/mcpd/${server}/mcp`;
+      
       console.log('\n' + chalk.green('✅ HTTP Gateway started!'));
-      console.log(chalk.gray(`\nServer URL: http://localhost:3001/partner/mcpd/${server}/mcp`));
-      console.log(chalk.gray('\nUse this URL in your HTTP client or application.'));
+      console.log(chalk.gray(`\nLocal URL: ${localUrl}`));
+      console.log(chalk.gray('\nUse this URL in your local applications.'));
+      
+      console.log('\n' + chalk.yellow('Need external access?'));
+      console.log(chalk.cyan(`  mcpd-setup ${server} --client tunnel`));
+      console.log(chalk.gray('  This will create a public URL using Cloudflare Tunnel (free, no account needed)'));
+      
       console.log('\n' + chalk.bold('Example usage:'));
-      console.log(chalk.cyan(`curl -X POST http://localhost:3001/partner/mcpd/${server}/mcp \\`));
+      console.log(chalk.cyan(`curl -X POST ${localUrl} \\`));
       console.log(chalk.cyan(`  -H "Content-Type: application/json" \\`));
       console.log(chalk.cyan(`  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`));
+      return;
+    }
+    
+    if (client === 'tunnel' || client === 'cloudflare') {
+      // Start Cloudflare tunnel
+      spinner.text = 'Starting Cloudflare tunnel (no account needed)...';
+      
+      // First ensure HTTP gateway is running
+      if (!await isGatewayRunning()) {
+        spinner.text = 'Starting HTTP Gateway first...';
+        await startGateway();
+      }
+      
+      
+      // Check if cloudflared is installed
+      const checkCloudflared = spawn('which', ['cloudflared']);
+      let cloudflaredInstalled = false;
+      
+      await new Promise((resolve) => {
+        checkCloudflared.on('exit', (code: number | null) => {
+          cloudflaredInstalled = code === 0;
+          resolve(undefined);
+        });
+      });
+      
+      if (!cloudflaredInstalled) {
+        spinner.text = 'Installing cloudflared...';
+        
+        // Try to install cloudflared based on platform
+        const platform = process.platform;
+        let installCmd = '';
+        
+        if (platform === 'darwin') {
+          installCmd = 'brew install cloudflared';
+          console.log(chalk.yellow('\nCloudflared not found. Installing via Homebrew...'));
+          console.log(chalk.gray('If this fails, install manually: brew install cloudflared'));
+        } else if (platform === 'linux') {
+          installCmd = 'curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/';
+          console.log(chalk.yellow('\nCloudflared not found. Installing...'));
+        } else {
+          spinner.fail('Cloudflared not found');
+          console.log(chalk.red('\nPlease install cloudflared manually:'));
+          console.log(chalk.cyan('  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation'));
+          return;
+        }
+        
+        if (installCmd) {
+          await new Promise((resolve) => {
+            const install = spawn('sh', ['-c', installCmd]);
+            install.on('exit', resolve);
+          });
+        }
+      }
+      
+      // Start the tunnel
+      spinner.text = 'Creating public tunnel...';
+      const tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:3001']);
+      
+      let tunnelUrl = '';
+      
+      tunnel.stderr?.on('data', (data: Buffer) => {
+        const output = data.toString();
+        
+        // Extract the tunnel URL from cloudflared output
+        const urlMatch = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+        if (urlMatch && !tunnelUrl) {
+          tunnelUrl = urlMatch[0];
+          const fullUrl = `${tunnelUrl}/partner/mcpd/${server}/mcp`;
+          
+          spinner.succeed('Public tunnel created!');
+          
+          console.log('\n' + chalk.green('✅ Your MCP server is now accessible from anywhere!'));
+          console.log(chalk.bold.cyan(`\n🌍 Public URL: ${fullUrl}`));
+          
+          console.log('\n' + chalk.yellow('Use this URL in your Railway app or any external service:'));
+          console.log(chalk.gray(`  ${fullUrl}`));
+          
+          console.log('\n' + chalk.bold('Test it:'));
+          console.log(chalk.cyan(`curl -X POST ${fullUrl} \\`));
+          console.log(chalk.cyan(`  -H "Content-Type: application/json" \\`));
+          console.log(chalk.cyan(`  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`));
+          
+          console.log('\n' + chalk.bgRed.white(' IMPORTANT ') + chalk.red(' Keep this terminal open to maintain the tunnel'));
+          console.log(chalk.gray('Press Ctrl+C to stop the tunnel\n'));
+        }
+        
+        // Show cloudflared output for debugging
+        if (output.includes('error') || output.includes('Error')) {
+          console.error(chalk.red(output));
+        }
+      });
+      
+      tunnel.on('error', (error: Error) => {
+        spinner.fail('Failed to start tunnel');
+        console.error(chalk.red(error.message));
+      });
+      
+      tunnel.on('exit', (code: number | null) => {
+        if (code !== 0 && !tunnelUrl) {
+          spinner.fail('Tunnel process exited unexpectedly');
+        }
+        console.log(chalk.yellow('\nTunnel closed'));
+      });
+      
+      // Keep the process running
+      process.on('SIGINT', () => {
+        console.log(chalk.yellow('\n\nShutting down tunnel...'));
+        tunnel.kill();
+        process.exit();
+      });
+      
       return;
     }
     
     // 5. Configure desktop clients
     spinner.text = `Configuring ${client}...`;
     const configPath = getConfigPath(client);
-    const serverUrl = `http://localhost:3001/partner/mcpd/${server}/mcp`;
+    let serverUrl = `http://localhost:3001/partner/mcpd/${server}/mcp`;
     
     // Read existing config or create new one
     let config: any = {};
@@ -157,7 +275,7 @@ async function setupServer(server: string, client: string, options: any) {
     
     // Add/update the server configuration
     if (client === 'claude') {
-      // Claude Desktop format
+      // Claude Desktop format - uses STDIO bridge
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers[`mcpd-${server}`] = {
         command: 'node',
@@ -167,8 +285,90 @@ async function setupServer(server: string, client: string, options: any) {
           MCPD_URL: 'http://localhost:8090'
         }
       };
+    } else if (client === 'cursor') {
+      // Cursor needs a tunnel to avoid localhost restrictions
+      spinner.text = 'Starting Cloudflare tunnel for Cursor...';
+      
+      // First ensure HTTP gateway is running
+      if (!await isGatewayRunning()) {
+        spinner.text = 'Starting HTTP Gateway first...';
+        await startGateway();
+      }
+      
+      // Check if cloudflared is installed
+      const checkCloudflared = spawn('which', ['cloudflared']);
+      let cloudflaredInstalled = false;
+      
+      await new Promise((resolve) => {
+        checkCloudflared.on('exit', (code: number | null) => {
+          cloudflaredInstalled = code === 0;
+          resolve(undefined);
+        });
+      });
+      
+      if (!cloudflaredInstalled) {
+        spinner.text = 'Installing cloudflared...';
+        const platform = process.platform;
+        if (platform === 'darwin') {
+          console.log(chalk.yellow('\nCloudflared not found. Installing via Homebrew...'));
+          await new Promise((resolve) => {
+            const install = spawn('brew', ['install', 'cloudflared']);
+            install.on('exit', resolve);
+          });
+        } else {
+          spinner.fail('Cloudflared not found');
+          console.log(chalk.red('\nPlease install cloudflared manually'));
+          return;
+        }
+      }
+      
+      // Start the tunnel
+      spinner.text = 'Creating public tunnel for Cursor...';
+      const tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:3001']);
+      
+      let tunnelUrl = '';
+      
+      // Wait for tunnel URL
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          spinner.fail('Timeout waiting for tunnel URL');
+          tunnel.kill();
+          resolve(undefined);
+        }, 30000);
+        
+        tunnel.stderr?.on('data', (data: Buffer) => {
+          const output = data.toString();
+          const urlMatch = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+          if (urlMatch && !tunnelUrl) {
+            tunnelUrl = urlMatch[0];
+            clearTimeout(timeout);
+            resolve(undefined);
+          }
+        });
+      });
+      
+      if (!tunnelUrl) {
+        spinner.fail('Failed to create tunnel');
+        return;
+      }
+      
+      // Update serverUrl to use the tunnel
+      serverUrl = `${tunnelUrl}/partner/mcpd/${server}/mcp`;
+      
+      // Cursor format - use the tunnel URL
+      if (!config.mcpServers) config.mcpServers = {};
+      config.mcpServers[`mcpd-${server}`] = {
+        url: serverUrl
+      };
+      
+      // Detach the tunnel so it keeps running in background
+      tunnel.unref();
+      
+      console.log('\n' + chalk.bgYellow.black(' IMPORTANT '));
+      console.log(chalk.yellow('The Cloudflare tunnel is running in the background.'));
+      console.log(chalk.yellow('To stop it later, run: killall cloudflared'));
     } else {
-      // Cursor/Windsurf format (when they support it)
+      // Windsurf format (when they support it)
       if (!config.mcp) config.mcp = {};
       if (!config.mcp.servers) config.mcp.servers = [];
       
@@ -197,7 +397,7 @@ async function setupServer(server: string, client: string, options: any) {
       console.log(chalk.yellow('\n⚠️  Please restart Claude Desktop to apply changes'));
     } else if (client === 'cursor') {
       console.log(chalk.yellow('\n⚠️  Please restart Cursor to apply changes'));
-      console.log(chalk.gray('Note: Cursor MCP support is still in development'));
+      console.log(chalk.green('✨ Your MCP server should now appear in Cursor\'s MCP settings'));
     } else if (client === 'windsurf') {
       console.log(chalk.yellow('\n⚠️  Please restart Windsurf to apply changes'));
       console.log(chalk.gray('Note: Check Windsurf docs for MCP support status'));
@@ -265,7 +465,7 @@ program
 
 program
   .argument('[server]', 'Name of the MCPD server to set up')
-  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf)', 'cursor')
+  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http, tunnel)', 'cursor')
   .option('--url <url>', 'Custom MCPD URL', 'http://localhost:8090')
   .description('Set up an MCPD server for a specific client')
   .action(async (server, options) => {
