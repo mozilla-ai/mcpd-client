@@ -121,7 +121,9 @@ const QuickSetup: React.FC = () => {
 
   const getSetupCommand = () => {
     if (!selectedServer) return '';
-    return `npx @mcpd/setup ${selectedServer} --client ${selectedClient}`;
+    // For now, show the path to the local script since @mcpd/setup isn't published
+    const projectPath = '/Users/ameckes/Downloads/mcpd-client/mcpd-setup';
+    return `cd ${projectPath} && node dist/index.js ${selectedServer} --client ${selectedClient}`;
   };
 
   const currentCommand = getSetupCommand();
