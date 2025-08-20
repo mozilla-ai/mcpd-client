@@ -107,16 +107,16 @@ For each configured server, get instant setup commands:
 
 ```bash
 # Setup for Claude Desktop
-npx @mcpd/setup filesystem --client claude
+cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client claude
 
 # Setup for Cursor
-npx @mcpd/setup filesystem --client cursor  
+cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client cursor  
 
 # Setup for Windsurf
-npx @mcpd/setup filesystem --client windsurf
+cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client windsurf
 
 # Start HTTP Gateway
-npx @mcpd/setup filesystem --client http
+cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client http
 ```
 
 #### What Each Command Does
