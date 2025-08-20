@@ -266,6 +266,7 @@ async function setupServer(server: string, client: string, options: any) {
     spinner.text = `Configuring ${client}...`;
     const configPath = getConfigPath(client);
     let serverUrl = `http://localhost:3001/partner/mcpd/${server}/mcp`;
+    let tunnel: any = null; // Declare tunnel at outer scope for Cursor
     
     // Read existing config or create new one
     let config: any = {};
@@ -324,7 +325,7 @@ async function setupServer(server: string, client: string, options: any) {
       
       // Start the tunnel
       spinner.text = 'Creating public tunnel for Cursor...';
-      const tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:3001']);
+      tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:3001']);
       
       let tunnelUrl = '';
       
@@ -352,6 +353,10 @@ async function setupServer(server: string, client: string, options: any) {
         return;
       }
       
+      // Wait a bit for the tunnel to be fully established and DNS to propagate
+      spinner.text = 'Waiting for tunnel to be fully established...';
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
       // Update serverUrl to use the tunnel
       serverUrl = `${tunnelUrl}/partner/mcpd/${server}/mcp`;
       
@@ -360,13 +365,6 @@ async function setupServer(server: string, client: string, options: any) {
       config.mcpServers[`mcpd-${server}`] = {
         url: serverUrl
       };
-      
-      // Detach the tunnel so it keeps running in background
-      tunnel.unref();
-      
-      console.log('\n' + chalk.bgYellow.black(' IMPORTANT '));
-      console.log(chalk.yellow('The Cloudflare tunnel is running in the background.'));
-      console.log(chalk.yellow('To stop it later, run: killall cloudflared'));
     } else {
       // Windsurf format (when they support it)
       if (!config.mcp) config.mcp = {};
@@ -398,6 +396,19 @@ async function setupServer(server: string, client: string, options: any) {
     } else if (client === 'cursor') {
       console.log(chalk.yellow('\n⚠️  Please restart Cursor to apply changes'));
       console.log(chalk.green('✨ Your MCP server should now appear in Cursor\'s MCP settings'));
+      console.log('\n' + chalk.bgRed.white(' IMPORTANT ') + chalk.red(' Keep this terminal open to maintain the tunnel'));
+      console.log(chalk.gray('Press Ctrl+C to stop the tunnel\n'));
+      
+      // Keep the process running for Cursor to maintain the tunnel
+      process.on('SIGINT', () => {
+        console.log(chalk.yellow('\n\nShutting down tunnel and gateway...'));
+        tunnel.kill();
+        process.exit();
+      });
+      
+      // Keep alive check every hour
+      setInterval(() => {}, 1000 * 60 * 60);
+      return; // Don't exit the function for Cursor
     } else if (client === 'windsurf') {
       console.log(chalk.yellow('\n⚠️  Please restart Windsurf to apply changes'));
       console.log(chalk.gray('Note: Check Windsurf docs for MCP support status'));

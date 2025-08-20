@@ -1,6 +1,6 @@
 # MCPD Client
 
-A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's mcpd daemon, featuring an Electron desktop app, STDIO bridge for Claude Desktop, and HTTP gateway for universal access.
+A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's mcpd daemon, featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
 
 ## 🎯 Core Components
 
@@ -13,6 +13,9 @@ Native MCP protocol bridge for Claude Desktop integration with flexible unified/
 ### 3. **MCPD HTTP Gateway** (REST/WebSocket)
 Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for web apps, Claude Code, Cursor, and any HTTP client.
 
+### 4. **MCPD Setup CLI**
+Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, HTTP, Tunnel).
+
 ## Features
 
 - **Visual Server Management**: Add, remove, and monitor MCP servers through an intuitive UI
@@ -24,7 +27,9 @@ Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for
 - **Multiple Access Methods**:
   - STDIO Bridge for Claude Desktop
   - HTTP Gateway for web/API access
+  - Cloudflare Tunnels for external access (no account needed)
   - Direct MCPD API access
+- **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
 - **Export Configurations**: Generate configs for various platforms and tools
 
 ## Prerequisites
@@ -105,7 +110,7 @@ The Connect tab provides the easiest way to integrate your MCP servers with vari
 For each configured server, just click a button:
 - **Connect to Claude Desktop** - Automatically configures claude_desktop_config.json
 - **Start HTTP Gateway** - Launches HTTP server and shows the API endpoint
-- **Connect to Cursor** - Coming soon with native Cursor support
+- **Connect to Cursor** - Currently use the CLI tool (see Option 2)
 
 #### Option 2: Use the CLI Tool
 After running `./install-global.sh`, you can use these commands from anywhere:
@@ -122,7 +127,7 @@ mcpd-setup filesystem --client http
 # Create public tunnel (for external services like Railway)
 mcpd-setup filesystem --client tunnel
 
-# Setup for Cursor (coming soon)
+# Setup for Cursor (with automatic tunnel)
 mcpd-setup filesystem --client cursor
 ```
 
@@ -135,9 +140,11 @@ mcpd-setup filesystem --client cursor
 - Supports both unified (all servers) and per-server modes
 
 **Cursor Integration:**
-- Configures Cursor's MCP settings
-- Uses HTTP-to-MCP bridge for compatibility
-- Provides real-time access to MCP tools
+- Automatically creates a Cloudflare tunnel to bypass localhost restrictions
+- Configures `~/.cursor/mcp.json` with the tunnel URL
+- Starts HTTP gateway for MCP protocol translation
+- Keeps the tunnel alive (terminal must stay open)
+- Provides real-time access to MCP tools in Cursor
 
 **Windsurf Integration:**
 - Sets up Windsurf with MCP server access

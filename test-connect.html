@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connect Tab Preview</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; background: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { margin-bottom: 32px; }
+        .title { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
+        .subtitle { color: #666; margin-top: 4px; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
+        .server-row { display: flex; align-items: center; gap: 24px; }
+        .server-info { flex: 0 0 200px; display: flex; gap: 12px; align-items: center; }
+        .server-name { font-size: 16px; font-weight: 600; }
+        .server-tools { color: #666; font-size: 12px; }
+        .buttons { flex: 1; display: flex; gap: 12px; flex-wrap: wrap; }
+        .button { padding: 8px 16px; border-radius: 6px; border: 1px solid #d9d9d9; background: white; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .button:hover { border-color: #40a9ff; color: #40a9ff; }
+        .button.primary { background: #1890ff; color: white; border-color: #1890ff; }
+        .button.primary:hover { background: #40a9ff; }
+        .button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tools-list { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
+        .tag { display: inline-block; padding: 2px 8px; background: #f0f9ff; color: #1890ff; border-radius: 4px; font-size: 11px; margin: 2px; }
+        .icon { width: 20px; height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">
+                🚀 Connect
+            </h1>
+            <p class="subtitle">One-click setup for your MCP servers. Just click a button to connect!</p>
+        </div>
+
+        <div class="card">
+            <div class="server-row">
+                <div class="server-info">
+                    ☁️
+                    <div>
+                        <div class="server-name">filesystem</div>
+                        <div class="server-tools">7 tools available</div>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <button class="button primary">
+                        🖥️ Connect to Claude Desktop
+                    </button>
+                    <button class="button">
+                        🌐 Start HTTP Gateway
+                    </button>
+                    <button class="button" disabled>
+                        🔌 Connect to Cursor (Coming Soon)
+                    </button>
+                </div>
+            </div>
+            <div class="tools-list">
+                <span style="color: #666; font-size: 12px;">Available tools: </span>
+                <span class="tag">read_file</span>
+                <span class="tag">write_file</span>
+                <span class="tag">create_directory</span>
+                <span class="tag">list_directory</span>
+                <span class="tag">move_file</span>
+                <span class="tag">search_files</span>
+                <span class="tag">get_file_info</span>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 32px;">
+            <h3>How it works</h3>
+            <div style="display: flex; gap: 32px;">
+                <div>
+                    ✅ <strong>Claude Desktop</strong><br>
+                    <span style="font-size: 12px; color: #666;">Automatically configures claude_desktop_config.json</span>
+                </div>
+                <div>
+                    ✅ <strong>HTTP Gateway</strong><br>
+                    <span style="font-size: 12px; color: #666;">Starts a local HTTP server for API access</span>
+                </div>
+                <div>
+                    ⚠️ <strong>Cursor</strong><br>
+                    <span style="font-size: 12px; color: #666;">Integration coming soon</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
