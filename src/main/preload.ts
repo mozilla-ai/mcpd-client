@@ -36,6 +36,11 @@ try {
     saveConfig: (content: string) => ipcRenderer.invoke('config:save', content),
     exportConfig: () => ipcRenderer.invoke('config:export'),
     
+    // Connect functionality - one-click setup
+    setupClaude: (serverName: string) => ipcRenderer.invoke('connect:setup-claude', serverName),
+    setupHTTP: (serverName: string) => ipcRenderer.invoke('connect:setup-http', serverName),
+    setupCursor: (serverName: string) => ipcRenderer.invoke('connect:setup-cursor', serverName),
+    
     // Test function
     test: () => {
       console.log('[Preload] test function called');

@@ -99,25 +99,15 @@ The application consists of:
 
 ### Connect Tab - One-Click Setup
 
-The Connect tab provides the easiest way to integrate your MCP servers with various tools:
+The Connect tab provides the easiest way to integrate your MCP servers with various tools - no commands needed!
 
-#### Quick Setup Commands
+#### Simple Button-Based Setup
 
-For each configured server, get instant setup commands:
+For each configured server, just click a button:
 
-```bash
-# Setup for Claude Desktop
-cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client claude
-
-# Setup for Cursor
-cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client cursor  
-
-# Setup for Windsurf
-cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client windsurf
-
-# Start HTTP Gateway
-cd /Users/ameckes/Downloads/mcpd-client/mcpd-setup && node dist/index.js filesystem --client http
-```
+- **Connect to Claude Desktop** - Automatically configures claude_desktop_config.json
+- **Start HTTP Gateway** - Launches HTTP server and shows the API endpoint
+- **Connect to Cursor** - Coming soon with native Cursor support
 
 #### What Each Command Does
 
