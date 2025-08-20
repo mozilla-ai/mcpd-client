@@ -99,4 +99,66 @@ export function setupIPC(mcpdManager: MCPDManager) {
     const config = await mcpdManager.loadConfig();
     return JSON.stringify(config, null, 2);
   });
+
+  // Connect functionality - simplified one-click setup
+  ipcMain.handle('connect:setup-claude', async (_, serverName: string) => {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    
+    // Claude Desktop config path
+    const configPath = path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+    
+    // Read existing config or create new one
+    let config: any = {};
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+    
+    // Add/update the server configuration
+    if (!config.mcpServers) config.mcpServers = {};
+    config.mcpServers[`mcpd-${serverName}`] = {
+      command: 'node',
+      args: ['/Users/ameckes/Downloads/mcpd-client/mcpd-bridge-server/dist/index.js'],
+      env: {
+        MCPD_SERVER: serverName,
+        MCPD_URL: 'http://localhost:8090'
+      }
+    };
+    
+    // Save the config
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    
+    return { success: true, message: 'Claude Desktop configured. Please restart Claude Desktop.' };
+  });
+
+  ipcMain.handle('connect:setup-http', async (_, serverName: string) => {
+    const { spawn } = require('child_process');
+    
+    // Start the HTTP gateway (if not already running)
+    const gateway = spawn('npm', ['run', 'start'], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: '/Users/ameckes/Downloads/mcpd-client/mcpd-http-gateway'
+    });
+    
+    gateway.unref();
+    
+    // Return the URL
+    return { 
+      success: true, 
+      url: `http://localhost:3001/partner/mcpd/${serverName}/mcp`,
+      message: 'HTTP Gateway started. Use the URL above in your application.'
+    };
+  });
+
+  ipcMain.handle('connect:setup-cursor', async (_, serverName: string) => {
+    // For now, just return instructions since Cursor's MCP support is still evolving
+    return {
+      success: true,
+      message: 'Cursor integration coming soon. Check Cursor documentation for latest MCP support.',
+      url: `http://localhost:3001/partner/mcpd/${serverName}/mcp`
+    };
+  });
 }

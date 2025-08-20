@@ -35,6 +35,9 @@ declare global {
       loadConfig: () => Promise<any>;
       saveConfig: (content: string) => Promise<void>;
       exportConfig: () => Promise<string>;
+      setupClaude: (serverName: string) => Promise<{ success: boolean; message: string }>;
+      setupHTTP: (serverName: string) => Promise<{ success: boolean; url?: string; message: string }>;
+      setupCursor: (serverName: string) => Promise<{ success: boolean; message: string }>;
     };
   }
 }
