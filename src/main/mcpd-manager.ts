@@ -505,6 +505,16 @@ export class MCPDManager {
     console.log('[MCPDManager] Writing new config:', tomlString);
     fs.writeFileSync(this.configPath, tomlString);
     console.log('[MCPDManager] Config written successfully to:', this.configPath);
+    
+    // Restart daemon to pick up new configuration
+    console.log('[MCPDManager] Restarting daemon to load new server...');
+    const wasRunning = await this.getStatus();
+    if (wasRunning.running) {
+      await this.stopDaemon();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
+      await this.startDaemon();
+      console.log('[MCPDManager] Daemon restarted successfully');
+    }
   }
 
   async removeServerFromConfig(name: string): Promise<void> {
@@ -527,6 +537,16 @@ export class MCPDManager {
     // Write back to file
     const tomlString = TOML.stringify(config);
     fs.writeFileSync(this.configPath, tomlString);
+    
+    // Restart daemon to pick up configuration changes
+    console.log('[MCPDManager] Restarting daemon to reload configuration...');
+    const wasRunning = await this.getStatus();
+    if (wasRunning.running) {
+      await this.stopDaemon();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
+      await this.startDaemon();
+      console.log('[MCPDManager] Daemon restarted successfully');
+    }
   }
 
   async getConfiguredServers(): Promise<any[]> {
