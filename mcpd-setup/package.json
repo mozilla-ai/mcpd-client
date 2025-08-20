@@ -1,5 +1,5 @@
 {
-  "name": "@mcpd/setup",
+  "name": "mcpd-setup",
   "version": "1.0.0",
   "description": "Quick setup tool for connecting MCPD servers to Cursor, Claude, and other MCP clients",
   "main": "dist/index.js",
