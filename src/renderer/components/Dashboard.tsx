@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Alert, Spin } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, CloudServerOutlined, ToolOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Alert, Spin, Button } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, CloudServerOutlined, ToolOutlined, ApiOutlined } from '@ant-design/icons';
 import { DaemonStatus, MCPServer } from '@shared/types';
 
 interface DashboardProps {
@@ -97,7 +97,18 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col span={24}>
-          <Card title="System Status">
+          <Card 
+            title="System Status"
+            extra={
+              <Button
+                icon={<ApiOutlined />}
+                onClick={() => window.open(`http://localhost:8090/api/v1/servers`, '_blank')}
+                disabled={!daemonStatus.running}
+              >
+                API Docs
+              </Button>
+            }
+          >
             {!daemonStatus.running ? (
               <Alert
                 message="Daemon Not Running"

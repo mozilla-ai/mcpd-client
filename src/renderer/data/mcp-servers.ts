@@ -54,7 +54,7 @@ export const MCP_SERVERS: MCPServerTemplate[] = [
         name: '--directory',
         description: 'Base directory for filesystem operations',
         required: true,
-        example: '/tmp/workspace',
+        example: '~/Documents',
       },
     ],
   },

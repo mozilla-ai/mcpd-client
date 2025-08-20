@@ -12,6 +12,14 @@ module.exports = [
       path: path.resolve(__dirname, 'dist'),
       filename: 'main.js',
     },
+    plugins: [
+      new CopyWebpackPlugin({
+        patterns: [
+          { from: 'src/main/icon.png', to: 'icon.png' },
+          { from: 'resources/', to: 'resources/', noErrorOnMissing: true }
+        ],
+      }),
+    ],
     module: {
       rules: [
         {
@@ -89,6 +97,11 @@ module.exports = [
     plugins: [
       new HtmlWebpackPlugin({
         template: './public/index.html',
+      }),
+      new CopyWebpackPlugin({
+        patterns: [
+          { from: 'public/favicon.png', to: 'favicon.png' }
+        ],
       }),
     ],
     devtool: 'source-map',

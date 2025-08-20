@@ -119,20 +119,23 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
       server.package[rt as keyof typeof server.package]
     );
     
+    let runtime: 'npx' | 'uvx' | 'docker' = 'npx';
     if (availableRuntimes.length > 0) {
-      setSelectedRuntime(availableRuntimes[0] as 'npx' | 'uvx' | 'docker');
+      runtime = availableRuntimes[0] as 'npx' | 'uvx' | 'docker';
+      setSelectedRuntime(runtime);
     }
     
     // Auto-select all tools by default
     setSelectedTools(server.tools.map(t => t.name));
 
-    // Get the package string for the selected runtime
-    const packageString = server.package[selectedRuntime as keyof typeof server.package] || '';
+    // Get the package string for the selected runtime WITH runtime prefix
+    const packageString = server.package[runtime as keyof typeof server.package] || '';
+    const fullPackage = packageString ? `${runtime}::${packageString}` : '';
 
     // Pre-fill form with server details
     form.setFieldsValue({
       name: server.id,
-      package: packageString,
+      package: fullPackage,
     });
 
     // Set environment variables if any
@@ -157,41 +160,69 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
   };
 
   const updateTomlPreview = () => {
-    const values = form.getFieldsValue();
-    if (!values.name || !values.package) {
-      setTomlPreview('');
-      return;
-    }
-
-    let toml = '[[servers]]\n';
-    toml += `  name = "${values.name}"\n`;
-    toml += `  package = "${values.package}"\n`;
-    
-    if (selectedTools.length > 0) {
-      toml += `  tools = [${selectedTools.map(t => `"${t}"`).join(', ')}]\n`;
-    }
-    
-    if (values.envVars) {
-      const envVars = Object.keys(values.envVars).filter(key => values.envVars[key]);
-      if (envVars.length > 0) {
-        toml += `  required_env = [${envVars.map(v => `"${v}"`).join(', ')}]\n`;
+    try {
+      const values = form.getFieldsValue();
+      if (!values.name || !values.package) {
+        setTomlPreview('');
+        return;
       }
-    }
-    
-    if (values.args) {
-      const args = values.args.split(',').map((a: string) => a.trim()).filter(Boolean);
-      if (args.length > 0) {
-        toml += `  required_args = [${args.map((a: string) => `"${a}"`).join(', ')}]\n`;
-      }
-    }
 
-    setTomlPreview(toml);
+      let toml = '[[servers]]\n';
+      toml += `  name = "${values.name}"\n`;
+      toml += `  package = "${values.package}"\n`;
+      
+      if (selectedTools.length > 0) {
+        toml += `  tools = [${selectedTools.map(t => `"${t}"`).join(', ')}]\n`;
+      }
+      
+      if (values.envVars && typeof values.envVars === 'object') {
+        const envVars = Object.keys(values.envVars).filter(key => values.envVars[key]);
+        if (envVars.length > 0) {
+          toml += `  required_env = [${envVars.map(v => `"${v}"`).join(', ')}]\n`;
+        }
+      }
+      
+      if (values.args) {
+        let args: string[] = [];
+        if (typeof values.args === 'string') {
+          // Custom mode: comma-separated string
+          args = values.args.split(',').map((a: string) => a.trim()).filter(Boolean);
+        } else if (typeof values.args === 'object') {
+          // Browse mode: object with argument names as keys
+          args = Object.entries(values.args)
+            .filter(([_, value]) => value)
+            .map(([key, value]) => `${key}=${value}`);
+        }
+        if (args.length > 0) {
+          toml += `  required_args = [${args.map((a: string) => `"${a}"`).join(', ')}]\n`;
+        }
+      }
+
+      setTomlPreview(toml);
+    } catch (error) {
+      console.error('Error updating TOML preview:', error);
+      setTomlPreview('# Error generating preview');
+    }
   };
 
   const handleAdd = async () => {
     try {
       const values = await form.validateFields();
       setAdding(true);
+
+      // Handle arguments - they come as nested object from form
+      let requiredArgs: string[] | undefined;
+      if (values.args) {
+        if (typeof values.args === 'string') {
+          // Custom mode: comma-separated string
+          requiredArgs = values.args.split(',').map((a: string) => a.trim()).filter(Boolean);
+        } else if (typeof values.args === 'object') {
+          // Browse mode: object with argument names as keys
+          requiredArgs = Object.entries(values.args)
+            .filter(([_, value]) => value)
+            .map(([key, value]) => `${key}=${value}`);
+        }
+      }
 
       const serverConfig = {
         name: values.name,
@@ -200,11 +231,10 @@ const AddServerModal: React.FC<AddServerModalProps> = ({ visible, onClose, onSuc
         requiredEnv: values.envVars ? 
           Object.keys(values.envVars).filter(key => values.envVars[key]) : 
           undefined,
-        requiredArgs: values.args ? 
-          values.args.split(',').map((a: string) => a.trim()).filter(Boolean) : 
-          undefined,
+        requiredArgs,
       };
 
+      console.log('Adding server with config:', serverConfig);
       await window.electronAPI.addServer(serverConfig);
       message.success(`Server ${values.name} added successfully`);
       onSuccess();
