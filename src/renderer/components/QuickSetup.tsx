@@ -8,20 +8,23 @@ import {
   Button,
   message,
   Tag,
-  Input,
   Alert,
   Divider,
+  Modal,
+  Input,
 } from 'antd';
 import {
-  CopyOutlined,
   RocketOutlined,
-  GithubOutlined,
   CloudOutlined,
   CodeOutlined,
-  CheckOutlined,
+  CheckCircleOutlined,
+  ApiOutlined,
+  DesktopOutlined,
+  GlobalOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 
-const { Text, Title } = Typography;
+const { Text, Title, Paragraph } = Typography;
 
 interface ServerInfo {
   name: string;
@@ -30,10 +33,9 @@ interface ServerInfo {
 
 const QuickSetup: React.FC = () => {
   const [servers, setServers] = useState<ServerInfo[]>([]);
-  const [selectedServer, setSelectedServer] = useState<string>('');
-  const [selectedClient, setSelectedClient] = useState<'cursor' | 'claude' | 'windsurf' | 'http'>('cursor');
   const [loading, setLoading] = useState(false);
-  const [copiedCommand, setCopiedCommand] = useState<string>('');
+  const [setupLoading, setSetupLoading] = useState<string>('');
+  const [httpUrl, setHttpUrl] = useState<string>('');
 
   useEffect(() => {
     loadServers();
@@ -64,68 +66,88 @@ const QuickSetup: React.FC = () => {
       );
       
       setServers(serversWithTools);
-      if (serversWithTools.length > 0 && !selectedServer) {
-        setSelectedServer(serversWithTools[0].name);
-      }
     } catch (error) {
       console.error('Failed to load servers:', error);
+      message.error('Failed to load servers. Make sure the daemon is running.');
     } finally {
       setLoading(false);
     }
   };
 
-  const copyCommand = (command: string) => {
-    navigator.clipboard.writeText(command);
-    setCopiedCommand(command);
-    message.success('Command copied to clipboard!');
-    
-    // Reset the copied state after 3 seconds
-    setTimeout(() => setCopiedCommand(''), 3000);
+  const setupClaude = async (serverName: string) => {
+    setSetupLoading(`claude-${serverName}`);
+    try {
+      const result = await window.electronAPI.setupClaude(serverName);
+      if (result.success) {
+        message.success(result.message);
+      } else {
+        message.error('Failed to setup Claude Desktop');
+      }
+    } catch (error) {
+      console.error('Failed to setup Claude:', error);
+      message.error('Failed to setup Claude Desktop');
+    } finally {
+      setSetupLoading('');
+    }
+  };
+
+  const setupHTTP = async (serverName: string) => {
+    setSetupLoading(`http-${serverName}`);
+    try {
+      const result = await window.electronAPI.setupHTTP(serverName);
+      if (result.success) {
+        setHttpUrl(result.url || '');
+        Modal.success({
+          title: 'HTTP Gateway Started',
+          content: (
+            <div>
+              <Paragraph>{result.message}</Paragraph>
+              <Input.TextArea 
+                value={result.url}
+                readOnly
+                autoSize
+                style={{ marginTop: 12 }}
+              />
+              <Paragraph style={{ marginTop: 12 }}>
+                <Text strong>Example usage:</Text>
+              </Paragraph>
+              <Input.TextArea
+                value={`curl -X POST ${result.url} \\
+  -H "Content-Type: application/json" \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}
+                readOnly
+                autoSize={{ minRows: 3 }}
+              />
+            </div>
+          ),
+          width: 600,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to setup HTTP:', error);
+      message.error('Failed to start HTTP gateway');
+    } finally {
+      setSetupLoading('');
+    }
+  };
+
+  const setupCursor = async (serverName: string) => {
+    setSetupLoading(`cursor-${serverName}`);
+    try {
+      const result = await window.electronAPI.setupCursor(serverName);
+      message.info(result.message);
+    } catch (error) {
+      console.error('Failed to setup Cursor:', error);
+      message.error('Failed to setup Cursor');
+    } finally {
+      setSetupLoading('');
+    }
   };
 
   const getServerIcon = (name: string) => {
-    if (name.includes('github')) return <GithubOutlined />;
     if (name.includes('filesystem')) return <CloudOutlined />;
     return <CodeOutlined />;
   };
-
-  const getClientInfo = (client: string) => {
-    const info = {
-      cursor: {
-        icon: '🖱️',
-        name: 'Cursor',
-        description: 'AI-powered code editor',
-        status: 'Check latest docs for MCP support'
-      },
-      claude: {
-        icon: '🤖',
-        name: 'Claude Desktop',
-        description: 'Desktop app with MCP support',
-        status: 'Full STDIO bridge support'
-      },
-      windsurf: {
-        icon: '🏄',
-        name: 'Windsurf',
-        description: 'AI-powered development environment',
-        status: 'Check documentation for MCP support'
-      },
-      http: {
-        icon: '🌐',
-        name: 'HTTP API',
-        description: 'Custom integrations via HTTP',
-        status: 'Ready for any HTTP client'
-      }
-    };
-    return info[client as keyof typeof info];
-  };
-
-  const getSetupCommand = () => {
-    if (!selectedServer) return '';
-    return `npx @mcpd/setup ${selectedServer} --client ${selectedClient}`;
-  };
-
-  const currentCommand = getSetupCommand();
-  const isCommandCopied = copiedCommand === currentCommand;
 
   return (
     <div style={{ padding: '24px' }}>
@@ -135,168 +157,156 @@ const QuickSetup: React.FC = () => {
           Connect
         </Title>
         <Text type="secondary">
-          Connect your MCP servers to Cursor, Claude Desktop, and other tools with a single command.
+          One-click setup for your MCP servers. Just click a button to connect!
         </Text>
       </div>
 
-      <Row gutter={[24, 24]}>
-        <Col span={12}>
-          <Card title="1. Choose MCP Server" size="small">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {servers.map((server) => (
-                  <Button
-                    key={server.name}
-                    type={selectedServer === server.name ? 'primary' : 'default'}
-                    icon={getServerIcon(server.name)}
-                    onClick={() => setSelectedServer(server.name)}
-                    style={{ marginBottom: 8 }}
-                  >
-                    {server.name}
-                  </Button>
-                ))}
-              </div>
+      {servers.length === 0 && !loading && (
+        <Alert
+          message="No servers found"
+          description="Make sure the MCPD daemon is running and you have servers configured."
+          type="warning"
+          showIcon
+          action={
+            <Button size="small" onClick={loadServers}>
+              Refresh
+            </Button>
+          }
+        />
+      )}
 
-              {selectedServer && (
-                <div style={{ marginTop: 16 }}>
-                  <Text strong>Available Tools:</Text>
-                  <div style={{ marginTop: 8 }}>
-                    <Space wrap>
-                      {servers
-                        .find((s) => s.name === selectedServer)
-                        ?.tools?.slice(0, 6)
-                        .map((tool) => (
-                          <Tag key={tool} color="blue" style={{ fontSize: 11 }}>
+      {loading ? (
+        <Card>
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <LoadingOutlined style={{ fontSize: 24 }} />
+            <div style={{ marginTop: 16 }}>Loading servers...</div>
+          </div>
+        </Card>
+      ) : (
+        <Row gutter={[16, 16]}>
+          {servers.map((server) => (
+            <Col span={24} key={server.name}>
+              <Card>
+                <Row gutter={[16, 16]} align="middle">
+                  <Col span={6}>
+                    <Space>
+                      {getServerIcon(server.name)}
+                      <div>
+                        <Text strong style={{ fontSize: 16 }}>
+                          {server.name}
+                        </Text>
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {server.tools.length} tools available
+                          </Text>
+                        </div>
+                      </div>
+                    </Space>
+                  </Col>
+                  
+                  <Col span={18}>
+                    <Space size="middle" wrap>
+                      <Button
+                        type="primary"
+                        icon={<DesktopOutlined />}
+                        onClick={() => setupClaude(server.name)}
+                        loading={setupLoading === `claude-${server.name}`}
+                      >
+                        Connect to Claude Desktop
+                      </Button>
+                      
+                      <Button
+                        icon={<GlobalOutlined />}
+                        onClick={() => setupHTTP(server.name)}
+                        loading={setupLoading === `http-${server.name}`}
+                      >
+                        Start HTTP Gateway
+                      </Button>
+                      
+                      <Button
+                        icon={<ApiOutlined />}
+                        onClick={() => setupCursor(server.name)}
+                        loading={setupLoading === `cursor-${server.name}`}
+                        disabled
+                      >
+                        Connect to Cursor (Coming Soon)
+                      </Button>
+                    </Space>
+                  </Col>
+                </Row>
+                
+                {server.tools.length > 0 && (
+                  <>
+                    <Divider style={{ margin: '16px 0 8px' }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Available tools: </Text>
+                      <Space wrap style={{ marginTop: 4 }}>
+                        {server.tools.slice(0, 8).map((tool) => (
+                          <Tag key={tool} style={{ fontSize: 11 }}>
                             {tool}
                           </Tag>
                         ))}
-                      {(servers.find((s) => s.name === selectedServer)?.tools?.length || 0) > 6 && (
-                        <Tag style={{ fontSize: 11 }}>
-                          +{(servers.find((s) => s.name === selectedServer)?.tools?.length || 0) - 6} more
-                        </Tag>
-                      )}
-                    </Space>
+                        {server.tools.length > 8 && (
+                          <Tag style={{ fontSize: 11 }}>
+                            +{server.tools.length - 8} more
+                          </Tag>
+                        )}
+                      </Space>
+                    </div>
+                  </>
+                )}
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
+
+      <div style={{ marginTop: 32 }}>
+        <Card size="small">
+          <Title level={4}>How it works</Title>
+          <Row gutter={[16, 16]}>
+            <Col span={8}>
+              <Space>
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <div>
+                  <Text strong>Claude Desktop</Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Automatically configures claude_desktop_config.json
+                    </Text>
                   </div>
                 </div>
-              )}
-            </Space>
-          </Card>
-        </Col>
-
-        <Col span={12}>
-          <Card title="2. Choose Target Application" size="small">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {(['cursor', 'claude', 'windsurf', 'http'] as const).map((client) => {
-                  const clientInfo = getClientInfo(client);
-                  return (
-                    <Button
-                      key={client}
-                      type={selectedClient === client ? 'primary' : 'default'}
-                      onClick={() => setSelectedClient(client)}
-                      style={{ 
-                        height: 'auto', 
-                        padding: '8px 16px',
-                        textAlign: 'left',
-                        marginBottom: 8 
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 16, marginBottom: 4 }}>
-                          {clientInfo.icon} {clientInfo.name}
-                        </div>
-                        <div style={{ fontSize: 11, opacity: 0.7 }}>
-                          {clientInfo.description}
-                        </div>
-                      </div>
-                    </Button>
-                  );
-                })}
-              </div>
-
-              <Alert
-                message={getClientInfo(selectedClient).status}
-                type={selectedClient === 'claude' ? 'success' : 'info'}
-              />
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-
-      {selectedServer && (
-        <Card 
-          title="3. Run Setup Command" 
-          style={{ marginTop: 24 }}
-          extra={
-            <Button
-              type="primary"
-              icon={isCommandCopied ? <CheckOutlined /> : <CopyOutlined />}
-              onClick={() => copyCommand(currentCommand)}
-              disabled={!currentCommand}
-            >
-              {isCommandCopied ? 'Copied!' : 'Copy'}
-            </Button>
-          }
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <div>
-              <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
-                Copy and paste this command into your terminal:
-              </Text>
-              <Input.TextArea
-                value={currentCommand}
-                readOnly
-                autoSize
-                style={{ 
-                  fontFamily: 'monospace', 
-                  fontSize: 16, 
-                  fontWeight: 500,
-                }}
-              />
-            </div>
-
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                After running the command, restart {getClientInfo(selectedClient).name} to start using the MCP server.
-              </Text>
-            </div>
-
-            {selectedClient === 'http' && (
-              <Alert
-                message="For HTTP integration"
-                description="This command will start the HTTP gateway and provide you with the endpoint URL for custom integrations."
-                type="info"
-                showIcon
-              />
-            )}
-
-            <Divider />
-
-            <div>
-              <Text strong>What this command does:</Text>
-              <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-                <li>✅ Checks that MCPD is running</li>
-                <li>✅ Verifies the server exists and is available</li>
-                <li>✅ Starts the HTTP gateway if needed</li>
-                <li>✅ Automatically configures {getClientInfo(selectedClient).name}</li>
-                <li>✅ No manual configuration required</li>
-              </ul>
-            </div>
-          </Space>
+              </Space>
+            </Col>
+            <Col span={8}>
+              <Space>
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <div>
+                  <Text strong>HTTP Gateway</Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Starts a local HTTP server for API access
+                    </Text>
+                  </div>
+                </div>
+              </Space>
+            </Col>
+            <Col span={8}>
+              <Space>
+                <CheckCircleOutlined style={{ color: '#faad14' }} />
+                <div>
+                  <Text strong>Cursor</Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Integration coming soon
+                    </Text>
+                  </div>
+                </div>
+              </Space>
+            </Col>
+          </Row>
         </Card>
-      )}
-
-
-      {servers.length === 0 && (
-        <Card style={{ marginTop: 24 }}>
-          <Alert
-            message="No MCP servers found"
-            description="Add some MCP servers first using the Servers tab, then come back here to set them up with your applications."
-            type="warning"
-            showIcon
-          />
-        </Card>
-      )}
+      </div>
     </div>
   );
 };

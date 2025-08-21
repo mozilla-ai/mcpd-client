@@ -1,6 +1,6 @@
 # MCPD Client
 
-A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's mcpd daemon, featuring an Electron desktop app, STDIO bridge for Claude Desktop, and HTTP gateway for universal access.
+A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's mcpd daemon, featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
 
 ## 🎯 Core Components
 
@@ -13,6 +13,9 @@ Native MCP protocol bridge for Claude Desktop integration with flexible unified/
 ### 3. **MCPD HTTP Gateway** (REST/WebSocket)
 Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for web apps, Claude Code, Cursor, and any HTTP client.
 
+### 4. **MCPD Setup CLI**
+Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, HTTP, Tunnel).
+
 ## Features
 
 - **Visual Server Management**: Add, remove, and monitor MCP servers through an intuitive UI
@@ -24,7 +27,9 @@ Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for
 - **Multiple Access Methods**:
   - STDIO Bridge for Claude Desktop
   - HTTP Gateway for web/API access
+  - Cloudflare Tunnels for external access (no account needed)
   - Direct MCPD API access
+- **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
 - **Export Configurations**: Generate configs for various platforms and tools
 
 ## Prerequisites
@@ -99,24 +104,31 @@ The application consists of:
 
 ### Connect Tab - One-Click Setup
 
-The Connect tab provides the easiest way to integrate your MCP servers with various tools:
+The Connect tab provides the easiest way to integrate your MCP servers with various tools.
 
-#### Quick Setup Commands
+#### Option 1: Use the Buttons in the App
+For each configured server, just click a button:
+- **Connect to Claude Desktop** - Automatically configures claude_desktop_config.json
+- **Start HTTP Gateway** - Launches HTTP server and shows the API endpoint
+- **Connect to Cursor** - Currently use the CLI tool (see Option 2)
 
-For each configured server, get instant setup commands:
-
+#### Option 2: Use the CLI Tool
+After running `./install-global.sh`, you can use these commands from anywhere:
 ```bash
+# List available servers
+mcpd-setup list
+
 # Setup for Claude Desktop
-npx @mcpd/setup filesystem --client claude
+mcpd-setup filesystem --client claude
 
-# Setup for Cursor
-npx @mcpd/setup filesystem --client cursor  
+# Start HTTP Gateway (local access)
+mcpd-setup filesystem --client http
 
-# Setup for Windsurf
-npx @mcpd/setup filesystem --client windsurf
+# Create public tunnel (for external services like Railway)
+mcpd-setup filesystem --client tunnel
 
-# Start HTTP Gateway
-npx @mcpd/setup filesystem --client http
+# Setup for Cursor (with automatic tunnel)
+mcpd-setup filesystem --client cursor
 ```
 
 #### What Each Command Does
@@ -128,9 +140,11 @@ npx @mcpd/setup filesystem --client http
 - Supports both unified (all servers) and per-server modes
 
 **Cursor Integration:**
-- Configures Cursor's MCP settings
-- Uses HTTP-to-MCP bridge for compatibility
-- Provides real-time access to MCP tools
+- Automatically creates a Cloudflare tunnel to bypass localhost restrictions
+- Configures `~/.cursor/mcp.json` with the tunnel URL
+- Starts HTTP gateway for MCP protocol translation
+- Keeps the tunnel alive (terminal must stay open)
+- Provides real-time access to MCP tools in Cursor
 
 **Windsurf Integration:**
 - Sets up Windsurf with MCP server access
@@ -141,6 +155,14 @@ npx @mcpd/setup filesystem --client http
 - Provides REST API access for web applications
 - Compatible with Claude Code and other HTTP clients
 - Automatic server discovery and routing
+- CORS enabled for web app integration
+
+**Public Tunnel (Cloudflare):**
+- Creates a public URL for your MCP server
+- No account or authentication required
+- Perfect for Railway apps or external services
+- Automatic cloudflared installation
+- Example: `https://random-name.trycloudflare.com/partner/mcpd/{server}/mcp`
 
 #### Example Workflows
 
