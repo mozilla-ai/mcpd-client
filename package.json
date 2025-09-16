@@ -29,7 +29,7 @@
   "homepage": "https://github.com/alexmeckes/mcpd-client#readme",
   "build": {
     "appId": "com.mcpd.client",
-    "productName": "MCPD Client",
+    "productName": "mcpd Client",
     "directories": {
       "output": "release"
     },

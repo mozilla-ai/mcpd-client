@@ -30,7 +30,7 @@ interface AuthRequest extends Request {
   };
 }
 
-class MCPDHTTPGateway {
+class McpdHttpGateway {
   private app: express.Application;
   private server: http.Server;
   private wss: WebSocketServer;
@@ -356,10 +356,10 @@ class MCPDHTTPGateway {
   }
 
   async start() {
-    // Test MCPD connection
+    // Test mcpd connection
     try {
       await axios.get(`${this.mcpdUrl}/api/v1/health`);
-      console.log(`✓ Connected to MCPD at ${this.mcpdUrl}`);
+      console.log(`✓ Connected to mcpd at ${this.mcpdUrl}`);
     } catch (error) {
       console.error(`✗ Could not connect to MCPD at ${this.mcpdUrl}`);
       console.error('  Make sure MCPD is running');
@@ -379,7 +379,7 @@ class MCPDHTTPGateway {
 }
 
 // Start the gateway
-const gateway = new MCPDHTTPGateway();
+const gateway = new McpdHttpGateway();
 gateway.start().catch((error) => {
   console.error('Failed to start gateway:', error);
   process.exit(1);
