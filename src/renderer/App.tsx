@@ -152,7 +152,7 @@ const App: React.FC = () => {
     <Layout style={{ minHeight: '100vh' }}>
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
         <div style={{ height: 32, margin: 16, textAlign: 'center', color: '#fff' }}>
-          {!collapsed && <h3>MCPD Client</h3>}
+          {!collapsed && <h3>mcpd Client</h3>}
         </div>
         <Menu
           theme="dark"

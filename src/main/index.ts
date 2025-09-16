@@ -1,11 +1,11 @@
 import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, session } from 'electron';
 import * as path from 'path';
-import { MCPDManager } from './mcpd-manager';
+import { McpdManager as McpdManager } from './mcpd-manager';
 import { setupIPC } from './ipc-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let mcpdManager: MCPDManager;
+let mcpdManager: McpdManager;
 
 function createWindow() {
   const iconPath = path.join(__dirname, 'icon.png');
@@ -130,7 +130,7 @@ if (!gotTheLock) {
       });
     });
 
-    mcpdManager = new MCPDManager();
+    mcpdManager = new McpdManager();
     setupIPC(mcpdManager);
     createWindow();
     createTray();

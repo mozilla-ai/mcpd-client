@@ -287,12 +287,12 @@ class MCPHTTPEndpoint {
   }
 
   async start() {
-    // Test MCPD connection
+    // Test mcpd connection
     try {
       await axios.get(`${this.mcpdUrl}/api/v1/health`);
-      console.log(`✓ Connected to MCPD at ${this.mcpdUrl}`);
+      console.log(`✓ Connected to mcpd at ${this.mcpdUrl}`);
     } catch (error) {
-      console.error(`✗ Could not connect to MCPD at ${this.mcpdUrl}`);
+      console.error(`✗ Could not connect to mcpd at ${this.mcpdUrl}`);
     }
     
     this.app.listen(PORT, () => {

@@ -1,4 +1,4 @@
-# MCPD Setup - Quick MCP Server Installation
+# mcpd Setup - Quick MCP Server Installation
 
 A simple CLI tool that mimics Composio's approach for setting up MCP servers with Cursor, Claude Desktop, and other tools.
 
@@ -21,7 +21,7 @@ npx @mcpd/setup
 mcpd-setup list
 ```
 
-This shows all your MCPD servers and their available tools.
+This shows all your mcpd servers and their available tools.
 
 ### 2. Set Up a Server
 
@@ -46,7 +46,7 @@ After running the command, restart the application to start using the MCP server
 
 ## How It Works
 
-1. **Checks Prerequisites**: Ensures MCPD is running and the server exists
+1. **Checks Prerequisites**: Ensures mcpd is running and the server exists
 2. **Starts HTTP Gateway**: Automatically starts the MCP-over-HTTP gateway if needed
 3. **Configures the Client**: Updates the client's configuration file
 4. **Ready to Use**: Just restart the client application
@@ -87,13 +87,13 @@ This tool mimics Composio's excellent UX:
 
 ## Comparison with Composio
 
-| Feature | Composio | MCPD Setup |
+| Feature | Composio | mcpd Setup |
 |---------|----------|------------|
 | Setup Command | ✅ `npx @composio/mcp@latest setup` | ✅ `npx @mcpd/setup` |
 | Per-Server Setup | ✅ Yes | ✅ Yes |
 | Auto Configuration | ✅ Yes | ✅ Yes |
 | Self-Hosted | ❌ Cloud | ✅ Local |
-| Custom Servers | ❌ Limited | ✅ Any MCPD server |
+| Custom Servers | ❌ Limited | ✅ Any mcpd server |
 
 ## Configuration Locations
 
@@ -111,12 +111,12 @@ The tool automatically updates the right configuration files:
 
 ## Troubleshooting
 
-### "MCPD is not running"
-Start MCPD first:
+### "mcpd is not running"
+Start mcpd first:
 ```bash
-mcpd start
+mcpd daemon
 ```
-Or use the MCPD Client desktop app
+Or use the mcpd Client desktop app
 
 ### "Server not found"
 List available servers:

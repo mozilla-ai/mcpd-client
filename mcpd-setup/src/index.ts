@@ -47,8 +47,8 @@ function getConfigPath(client: string): string {
   return configs.linux;
 }
 
-// Check if MCPD is running
-async function isMCPDRunning(): Promise<boolean> {
+// Check if mcpd is running
+async function isMcpdRunning(): Promise<boolean> {
   try {
     await axios.get('http://localhost:8090/api/v1/servers');
     return true;
@@ -67,7 +67,7 @@ async function isGatewayRunning(): Promise<boolean> {
   }
 }
 
-// Get available servers from MCPD
+// Get available servers from mcpd
 async function getServers(): Promise<string[]> {
   try {
     const response = await axios.get('http://localhost:8090/api/v1/servers');
@@ -84,12 +84,12 @@ async function getServers(): Promise<string[]> {
 // Start the HTTP gateway in background
 function startGateway(): Promise<void> {
   return new Promise((resolve) => {
-    console.log(chalk.yellow('Starting MCPD HTTP Gateway...'));
+    console.log(chalk.yellow('Starting mcpd HTTP Gateway...'));
     
     const gateway = spawn('npm', ['run', 'start:mcp'], {
       detached: true,
       stdio: 'ignore',
-      cwd: '/Users/ameckes/Downloads/mcpd-client/mcpd-http-gateway'
+      cwd: path.join(__dirname, '../../mcpd-http-gateway')
     });
     
     gateway.unref();
@@ -104,12 +104,12 @@ async function setupServer(server: string, client: string, options: any) {
   const spinner = ora('Checking prerequisites...').start();
   
   try {
-    // 1. Check if MCPD is running
-    if (!await isMCPDRunning()) {
-      spinner.fail('MCPD is not running');
-      console.log(chalk.red('\nPlease start MCPD first:'));
-      console.log(chalk.cyan('  mcpd start'));
-      console.log(chalk.gray('  or use the MCPD Client app'));
+    // 1. Check if mcpd is running
+    if (!await isMcpdRunning()) {
+      spinner.fail('mcpd is not running');
+      console.log(chalk.red('\nPlease start mcpd first:'));
+      console.log(chalk.cyan('  mcpd daemon'));
+      console.log(chalk.gray('  or use the mcpd Client app'));
       process.exit(1);
     }
     
@@ -280,7 +280,7 @@ async function setupServer(server: string, client: string, options: any) {
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers[`mcpd-${server}`] = {
         command: 'node',
-        args: ['/Users/ameckes/Downloads/mcpd-client/mcpd-bridge-server/dist/index.js'],
+        args: [path.join(__dirname, '../../mcpd-bridge-server/dist/index.js')],
         env: {
           MCPD_SERVER: server,
           MCPD_URL: 'http://localhost:8090'
@@ -426,16 +426,16 @@ async function listServers() {
   const spinner = ora('Fetching servers...').start();
   
   try {
-    if (!await isMCPDRunning()) {
-      spinner.fail('MCPD is not running');
-      console.log(chalk.red('\nPlease start MCPD first'));
+    if (!await isMcpdRunning()) {
+      spinner.fail('mcpd is not running');
+      console.log(chalk.red('\nPlease start mcpd first'));
       process.exit(1);
     }
     
     const servers = await getServers();
     spinner.succeed(`Found ${servers.length} servers`);
     
-    console.log('\n' + chalk.bold('Available MCPD Servers:'));
+    console.log('\n' + chalk.bold('Available mcpd Servers:'));
     for (const server of servers) {
       console.log(chalk.cyan(`  ${server}`));
       
@@ -466,19 +466,19 @@ async function listServers() {
 // Main CLI setup
 program
   .name('mcpd-setup')
-  .description('Quick setup tool for MCPD servers with Cursor, Claude, and other MCP clients')
+  .description('Quick setup tool for mcpd servers with Cursor, Claude, and other MCP clients')
   .version('1.0.0');
 
 program
   .command('list')
-  .description('List available MCPD servers')
+  .description('List available mcpd servers')
   .action(listServers);
 
 program
-  .argument('[server]', 'Name of the MCPD server to set up')
+  .argument('[server]', 'Name of the mcpd server to set up')
   .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http, tunnel)', 'cursor')
-  .option('--url <url>', 'Custom MCPD URL', 'http://localhost:8090')
-  .description('Set up an MCPD server for a specific client')
+  .option('--url <url>', 'Custom mcpd URL', 'http://localhost:8090')
+  .description('Set up an mcpd server for a specific client')
   .action(async (server, options) => {
     if (!server) {
       // If no server specified, list available servers
@@ -489,6 +489,6 @@ program
   });
 
 // Show colorful banner
-console.log(chalk.bold.cyan('\n🚀 MCPD Setup Tool\n'));
+console.log(chalk.bold.cyan('\n🚀 mcpd Setup Tool\n'));
 
 program.parse();

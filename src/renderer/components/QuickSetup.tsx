@@ -164,7 +164,7 @@ const QuickSetup: React.FC = () => {
       {servers.length === 0 && !loading && (
         <Alert
           message="No servers found"
-          description="Make sure the MCPD daemon is running and you have servers configured."
+          description="Make sure the mcpd daemon is running and you have servers configured."
           type="warning"
           showIcon
           action={

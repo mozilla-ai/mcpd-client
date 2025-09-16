@@ -1,4 +1,4 @@
-# Deployment Guide for MCPD Client
+# Deployment Guide for mcpd Client
 
 ## Exposing Local MCP Servers to External Services
 

@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
-import { MCPDManager } from './mcpd-manager';
+import { McpdManager } from './mcpd-manager';
 
-export function setupIPC(mcpdManager: MCPDManager) {
+export function setupIPC(mcpdManager: McpdManager) {
   // Test handler to verify IPC is working
   ipcMain.handle('test:ping', async () => {
     console.log('[Main] test:ping received');
@@ -119,7 +119,7 @@ export function setupIPC(mcpdManager: MCPDManager) {
     if (!config.mcpServers) config.mcpServers = {};
     config.mcpServers[`mcpd-${serverName}`] = {
       command: 'node',
-      args: ['/Users/ameckes/Downloads/mcpd-client/mcpd-bridge-server/dist/index.js'],
+      args: [path.join(__dirname, '../../mcpd-bridge-server/dist/index.js')],
       env: {
         MCPD_SERVER: serverName,
         MCPD_URL: 'http://localhost:8090'
@@ -173,7 +173,7 @@ export function setupIPC(mcpdManager: MCPDManager) {
       }
       
       // Start the HTTP gateway using node directly
-      const gatewayPath = '/Users/ameckes/Downloads/mcpd-client/mcpd-http-gateway';
+      const gatewayPath = path.join(__dirname, '../../mcpd-http-gateway');
       const scriptPath = path.join(gatewayPath, 'dist', 'index.js');
       
       // Build the gateway if needed

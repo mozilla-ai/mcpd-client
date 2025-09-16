@@ -66,7 +66,7 @@ const ConfigEditor: React.FC = () => {
     <div>
       <Alert
         message="Configuration File (.mcpd.toml)"
-        description="Edit your MCPD configuration directly. Changes will be applied after saving and restarting the daemon."
+        description="Edit your mcpd configuration directly. Changes will be applied after saving and restarting the daemon."
         type="info"
         showIcon
         style={{ marginBottom: 16 }}

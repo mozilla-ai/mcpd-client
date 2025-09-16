@@ -1,6 +1,6 @@
-# MCPD Bridge Server
+# mcpd Bridge Server
 
-A universal MCP bridge that connects to the MCPD daemon and exposes MCP servers in two modes: unified (all servers) or individual (per-server). This allows any MCP client (Claude Desktop, Claude.ai, etc.) to access your MCPD-managed servers with flexible configuration options.
+A universal MCP bridge that connects to the mcpd daemon and exposes MCP servers in two modes: unified (all servers) or individual (per-server). This allows any MCP client (Claude Desktop, Claude.ai, etc.) to access your mcpd-managed servers with flexible configuration options.
 
 ## Features
 
@@ -10,7 +10,7 @@ A universal MCP bridge that connects to the MCPD daemon and exposes MCP servers 
 - **Flexible Tool Namespacing**: 
   - Always enabled in unified mode (e.g., `github__create_issue`)
   - Optional in individual mode with `--no-namespace` flag
-- **Dynamic Discovery**: Automatically discovers servers and tools from MCPD
+- **Dynamic Discovery**: Automatically discovers servers and tools from mcpd
 - **Standard MCP Protocol**: Works with any MCP-compatible client
 
 ## Installation
@@ -52,7 +52,7 @@ Examples:
 
 #### 1. Unified Mode (All Servers)
 
-Single connection exposing all MCPD servers:
+Single connection exposing all mcpd servers:
 
 ```json
 {
@@ -122,26 +122,26 @@ You can combine both modes for maximum flexibility:
 
 The bridge server can be configured through environment variables:
 
-- `MCPD_URL`: URL of the MCPD daemon (default: `http://localhost:8090`)
-- `MCPD_API_KEY`: Optional API key for MCPD authentication
+- `MCPD_URL`: URL of the mcpd daemon (default: `http://localhost:8090`)
+- `MCPD_API_KEY`: Optional API key for mcpd authentication
 
 ## How It Works
 
 ### Unified Mode
-1. Bridge connects to MCPD and discovers ALL servers
+1. Bridge connects to mcpd and discovers ALL servers
 2. Tools from all servers are exposed with namespacing (`server__tool`)
 3. Single MCP connection handles all servers
 4. Best for: Simple setup, automatic discovery of new servers
 
 ### Individual Mode
-1. Bridge connects to MCPD for a specific server only
+1. Bridge connects to mcpd for a specific server only
 2. Tools can be namespaced or use original names
 3. Each server requires its own bridge instance
 4. Best for: Server isolation, selective enabling, debugging
 
 ### Request Flow
 ```
-Claude Desktop → MCP Protocol → Bridge Server → HTTP API → MCPD → Target MCP Server
+Claude Desktop → MCP Protocol → Bridge Server → HTTP API → mcpd → Target MCP Server
 ```
 
 ## Architecture
@@ -151,11 +151,11 @@ Claude Desktop / Claude.ai
          ↓
    MCP Protocol
          ↓
-  MCPD Bridge Server
+  mcpd Bridge Server
          ↓
     HTTP API
          ↓
-    MCPD Daemon
+    mcpd Daemon
          ↓
   Individual MCP Servers
   (filesystem, github, etc.)
