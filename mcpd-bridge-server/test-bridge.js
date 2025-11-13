@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// Simple test script to verify the bridge server can connect to MCPD
+// Simple test script to verify the bridge server can connect to mcpd
 import axios from 'axios';
 
 const MCPD_URL = process.env.MCPD_URL || 'http://localhost:8090';
 
-async function testMCPDConnection() {
-  console.log(`Testing connection to MCPD at ${MCPD_URL}...`);
+async function testMcpdConnection() {
+  console.log(`Testing connection to mcpd at ${MCPD_URL}...`);
   
   try {
     // Test health endpoint
@@ -32,17 +32,17 @@ async function testMCPDConnection() {
       }
     }
     
-    console.log('\n✅ MCPD connection test successful!');
+    console.log('\n✅ mcpd connection test successful!');
     console.log('\nYou can now use the bridge server with:');
     console.log('  npx mcpd-bridge-server');
     
   } catch (error) {
-    console.error('❌ Failed to connect to MCPD:', error.message);
-    console.error('\nMake sure MCPD is running:');
-    console.error('  1. Start the MCPD daemon through the Electron app');
-    console.error('  2. Or run: mcpd start');
+    console.error('❌ Failed to connect to mcpd:', error.message);
+    console.error('\nMake sure mcpd is running:');
+    console.error('  1. Start the mcpd daemon through the Electron app');
+    console.error('  2. Or run: mcpd daemon');
     process.exit(1);
   }
 }
 
-testMCPDConnection();
+testMcpdConnection();

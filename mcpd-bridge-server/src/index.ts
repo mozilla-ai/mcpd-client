@@ -31,7 +31,7 @@ for (let i = 0; i < args.length; i++) {
     useNamespacing = false;
   } else if (args[i] === '--help' || args[i] === '-h') {
     console.log(`
-MCPD Bridge Server - Universal MCP adapter for MCPD
+mcpd Bridge Server - Universal MCP adapter for mcpd
 
 Usage:
   mcpd-bridge-server [options]
@@ -52,14 +52,14 @@ Examples:
   mcpd-bridge-server --server github --no-namespace
 
 Environment Variables:
-  MCPD_URL      URL of MCPD daemon (default: http://localhost:8090)
-  MCPD_API_KEY  Optional API key for MCPD authentication
+  MCPD_URL      URL of mcpd daemon (default: http://localhost:8090)
+  MCPD_API_KEY  Optional API key for mcpd authentication
 `);
     process.exit(0);
   }
 }
 
-interface MCPDServer {
+interface McpdServer {
   name: string;
   package: string;
   tools?: string[];
@@ -67,17 +67,17 @@ interface MCPDServer {
   requiredArgs?: string[];
 }
 
-interface MCPDTool {
+interface McpdTool {
   name: string;
   description?: string;
   inputSchema?: any;
 }
 
-class MCPDBridgeServer {
+class McpdBridgeServer {
   private server: Server;
   private mcpdUrl: string;
   private apiKey?: string;
-  private toolCache: Map<string, MCPDTool[]> = new Map();
+  private toolCache: Map<string, McpdTool[]> = new Map();
   private targetServer?: string;
   private useNamespacing: boolean;
   private mode: 'unified' | 'individual';
@@ -112,25 +112,25 @@ class MCPDBridgeServer {
   private async loadConfig() {
     const configPath = path.join(os.homedir(), '.config', 'mcpd', 'config.toml');
     if (fs.existsSync(configPath)) {
-      console.error(`Loading MCPD config from ${configPath}`);
+      console.error(`Loading mcpd config from ${configPath}`);
       // We'd need a TOML parser here in production
       // For now, we'll rely on environment variables
     }
   }
 
-  private async fetchServers(): Promise<MCPDServer[]> {
+  private async fetchServers(): Promise<McpdServer[]> {
     try {
       const response = await axios.get(`${this.mcpdUrl}/api/v1/servers`, {
         headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {},
       });
       return response.data.servers || [];
     } catch (error: any) {
-      console.error('Failed to fetch servers from MCPD:', error.message);
+      console.error('Failed to fetch servers from mcpd:', error.message);
       return [];
     }
   }
 
-  private async fetchToolsForServer(serverName: string): Promise<MCPDTool[]> {
+  private async fetchToolsForServer(serverName: string): Promise<McpdTool[]> {
     try {
       const response = await axios.get(`${this.mcpdUrl}/api/v1/servers/${serverName}/tools`, {
         headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {},
@@ -143,14 +143,14 @@ class MCPDBridgeServer {
   }
 
   private async getAllTools(): Promise<Tool[]> {
-    let servers: MCPDServer[];
+    let servers: McpdServer[];
     
     if (this.mode === 'individual' && this.targetServer) {
       // In individual mode, only fetch the target server
       const allServers = await this.fetchServers();
       const server = allServers.find(s => s.name === this.targetServer);
       if (!server) {
-        console.error(`Server '${this.targetServer}' not found in MCPD`);
+        console.error(`Server '${this.targetServer}' not found in mcpd`);
         return [];
       }
       servers = [server];
@@ -214,7 +214,7 @@ class MCPDBridgeServer {
       const modeDesc = this.mode === 'individual' 
         ? `for server '${this.targetServer}'` 
         : 'across all servers';
-      console.error(`Fetching tools from MCPD ${modeDesc}...`);
+      console.error(`Fetching tools from mcpd ${modeDesc}...`);
       const tools = await this.getAllTools();
       console.error(`Found ${tools.length} tools`);
       return { tools };
@@ -280,37 +280,37 @@ class MCPDBridgeServer {
       console.error('Starting in UNIFIED mode (all servers)');
     }
     
-    // Test connection to MCPD
-    console.error(`Connecting to MCPD at ${this.mcpdUrl}...`);
+    // Test connection to mcpd
+    console.error(`Connecting to mcpd at ${this.mcpdUrl}...`);
     try {
       await axios.get(`${this.mcpdUrl}/api/v1/health`, {
         headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {},
       });
-      console.error('Successfully connected to MCPD');
+      console.error('Successfully connected to mcpd');
       
       // Verify target server exists in individual mode
       if (this.mode === 'individual' && this.targetServer) {
         const servers = await this.fetchServers();
         const serverExists = servers.some(s => s.name === this.targetServer);
         if (!serverExists) {
-          console.error(`Error: Server '${this.targetServer}' not found in MCPD`);
+          console.error(`Error: Server '${this.targetServer}' not found in mcpd`);
           console.error('Available servers:', servers.map(s => s.name).join(', '));
           process.exit(1);
         }
       }
     } catch (error: any) {
-      console.error('Warning: Could not connect to MCPD:', error.message);
+      console.error('Warning: Could not connect to mcpd:', error.message);
       console.error('The bridge server will start, but tools may not be available');
     }
     
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('MCPD Bridge Server started');
+    console.error('mcpd Bridge Server started');
   }
 }
 
 // Start the server with parsed arguments
-const bridge = new MCPDBridgeServer(targetServer, useNamespacing);
+const bridge = new McpdBridgeServer(targetServer, useNamespacing);
 bridge.start().catch((error) => {
   console.error('Failed to start bridge server:', error);
   process.exit(1);

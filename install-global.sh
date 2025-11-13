@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# MCPD Client Global Install Script
+# mcpd Client Global Install Script
 # This installs the mcpd-setup tool globally so you can use it from anywhere
 
-echo "🚀 Installing MCPD Setup Tools..."
+echo "🚀 Installing mcpd Setup Tools..."
 
 # Colors for output
 GREEN='\033[0;32m'

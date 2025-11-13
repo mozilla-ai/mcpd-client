@@ -1,13 +1,13 @@
 # MCP-over-HTTP Setup Guide
 
-This guide shows how to use the MCP-over-HTTP endpoint (similar to Composio's approach) to connect Cursor, Claude, and other tools directly to your MCPD servers.
+This guide shows how to use the MCP-over-HTTP endpoint (similar to Composio's approach) to connect Cursor, Claude, and other tools directly to your mcpd managed servers.
 
 ## How It Works
 
 Instead of using STDIO (which requires local process spawning), this endpoint makes your MCP servers available via HTTP URLs that tools can connect to directly:
 
 ```
-Cursor/Claude → HTTP → MCP Endpoint → MCPD → Your MCP Servers
+Cursor/Claude → HTTP → MCP Endpoint → mcpd → Your MCP Servers
 ```
 
 ## Quick Start
@@ -15,8 +15,8 @@ Cursor/Claude → HTTP → MCP Endpoint → MCPD → Your MCP Servers
 ### 1. Start the MCP-over-HTTP Endpoint
 
 ```bash
-# Start MCPD first
-mcpd start
+# Start mcpd first
+mcpd daemon
 
 # Then start the MCP endpoint
 npm run start:mcp

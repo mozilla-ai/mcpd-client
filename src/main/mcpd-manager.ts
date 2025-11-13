@@ -6,7 +6,7 @@ import * as TOML from '@iarna/toml';
 import { app } from 'electron';
 import { DaemonStatus, MCPServer, MCPTool } from '@shared/types';
 
-export class MCPDManager {
+export class McpdManager {
   private daemonProcess: ChildProcess | null = null;
   private apiClient: AxiosInstance;
   private logPath: string;
@@ -35,15 +35,15 @@ export class MCPDManager {
 
   async startDaemon(): Promise<DaemonStatus> {
     const logs: string[] = [];
-    logs.push('[MCPDManager] startDaemon called');
-    logs.push(`[MCPDManager] mcpdPath: ${this.mcpdPath}`);
-    console.log('[MCPDManager] startDaemon called');
-    console.log('[MCPDManager] mcpdPath:', this.mcpdPath);
+    logs.push(`[${this.constructor.name}] startDaemon called`);
+    logs.push(`[${this.constructor.name}] mcpdPath: ${this.mcpdPath}`);
+    console.log(`[${this.constructor.name}] startDaemon called`);
+    console.log(`[${this.constructor.name}] mcpdPath:`, this.mcpdPath);
     
     // First check if daemon is already running
     const currentStatus = await this.getStatus();
-    logs.push(`[MCPDManager] Current daemon status: ${JSON.stringify(currentStatus)}`);
-    console.log('[MCPDManager] Current daemon status:', currentStatus);
+    logs.push(`[${this.constructor.name}] Current daemon status: ${JSON.stringify(currentStatus)}`);
+    console.log(`[${this.constructor.name}] Current daemon status:`, currentStatus);
     
     if (currentStatus.running) {
       logs.push('Daemon already running, connecting to existing instance');
@@ -56,30 +56,30 @@ export class MCPDManager {
     }
 
     return new Promise((resolve, reject) => {
-      console.log('[MCPDManager] Starting daemon promise...');
-      logs.push('[MCPDManager] Starting daemon promise...');
+      console.log(`[${this.constructor.name}] Starting daemon promise...`);
+      logs.push(`[${this.constructor.name}] Starting daemon promise...`);
       
       // Validate mcpd exists
       if (this.mcpdPath !== 'mcpd' && !fs.existsSync(this.mcpdPath)) {
         const isSystemPath = this.mcpdPath.startsWith('/');
         const errorMsg = isSystemPath 
           ? `mcpd binary not found at ${this.mcpdPath}. This should not happen as mcpd is bundled with the app. Please report this issue.`
-          : `mcpd binary not found at ${this.mcpdPath}. Please install mcpd using: go install github.com/mozilla-ai/mcpd@latest`;
-        console.error('[MCPDManager] Binary not found:', errorMsg);
-        logs.push(`[MCPDManager] Binary not found: ${errorMsg}`);
+          : `mcpd binary not found at ${this.mcpdPath}. Please install mcpd using: brew install --cask mozilla-ai/tap/mcpd`;
+        console.error(`[${this.constructor.name}] Binary not found:`, errorMsg);
+        logs.push(`[${this.constructor.name}] Binary not found: ${errorMsg}`);
         reject(new Error(errorMsg));
         return;
       }
       
-      console.log('[MCPDManager] mcpd binary found at:', this.mcpdPath);
-      logs.push(`[MCPDManager] mcpd binary found at: ${this.mcpdPath}`);
+      console.log(`[${this.constructor.name}] mcpd binary found at:`, this.mcpdPath);
+      logs.push(`[${this.constructor.name}] mcpd binary found at: ${this.mcpdPath}`);
 
       // Check if config exists, if not create it
       if (!fs.existsSync(this.configPath)) {
         this.initConfig();
       }
 
-      console.log('[MCPDManager] Spawning daemon with args:', [
+      console.log(`[${this.constructor.name}] Spawning daemon with args:`, [
         'daemon',
         '--dev',
         '--log-level=DEBUG',
@@ -138,9 +138,9 @@ export class MCPDManager {
           detached: false,
         });
         
-        console.log('[MCPDManager] Daemon process spawned, pid:', this.daemonProcess.pid);
+        console.log(`[${this.constructor.name}] Daemon process spawned, pid:`, this.daemonProcess.pid);
       } catch (spawnError) {
-        console.error('[MCPDManager] Failed to spawn daemon:', spawnError);
+        console.error(`[${this.constructor.name}] Failed to spawn daemon:`, spawnError);
         reject(new Error(`Failed to spawn daemon: ${spawnError}`));
         return;
       }
@@ -154,7 +154,7 @@ export class MCPDManager {
       const absoluteTimeout = setTimeout(() => {
         if (!hasResolved) {
           hasResolved = true;
-          console.error('[MCPDManager] Daemon start absolute timeout reached');
+          console.error(`[${this.constructor.name}] Daemon start absolute timeout reached`);
           const errorMsg = `Daemon failed to start within 8 seconds. Path: ${this.mcpdPath}, Config: ${this.configPath}, Error output: ${errorOutput || 'none'}`;
           reject(new Error(errorMsg));
         }
@@ -238,7 +238,7 @@ export class MCPDManager {
           if (status.running) {
             hasResolved = true;
             clearTimeout(absoluteTimeout);
-            console.log('[MCPDManager] Daemon started successfully');
+            console.log(`[${this.constructor.name}] Daemon started successfully`);
             resolve(status);
           } else if (!errorOutput) {
             hasResolved = true;
@@ -444,11 +444,11 @@ export class MCPDManager {
     requiredArgsPositional?: string[];
     requiredArgsBool?: string[];
   }): Promise<void> {
-    console.log('[MCPDManager] addServerToConfig called with:', server);
+    console.log(`[${this.constructor.name}] addServerToConfig called with:`, server);
     
     // Load existing config
     const configContent = fs.readFileSync(this.configPath, 'utf-8');
-    console.log('[MCPDManager] Current config content:', configContent);
+    console.log(`[${this.constructor.name}] Current config content:`, configContent);
     const config = TOML.parse(configContent) as any;
 
     // Ensure servers array exists
@@ -498,22 +498,22 @@ export class MCPDManager {
 
     // Add to config
     config.servers.push(newServer);
-    console.log('[MCPDManager] New server entry:', newServer);
+    console.log(`[${this.constructor.name}] New server entry:`, newServer);
 
     // Write back to file
     const tomlString = TOML.stringify(config);
-    console.log('[MCPDManager] Writing new config:', tomlString);
+    console.log(`[${this.constructor.name}] Writing new config:`, tomlString);
     fs.writeFileSync(this.configPath, tomlString);
-    console.log('[MCPDManager] Config written successfully to:', this.configPath);
+    console.log(`[${this.constructor.name}] Config written successfully to:`, this.configPath);
     
     // Restart daemon to pick up new configuration
-    console.log('[MCPDManager] Restarting daemon to load new server...');
+    console.log(`[${this.constructor.name}] Restarting daemon to load new server...`);
     const wasRunning = await this.getStatus();
     if (wasRunning.running) {
       await this.stopDaemon();
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
       await this.startDaemon();
-      console.log('[MCPDManager] Daemon restarted successfully');
+      console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
   }
 
@@ -539,13 +539,13 @@ export class MCPDManager {
     fs.writeFileSync(this.configPath, tomlString);
     
     // Restart daemon to pick up configuration changes
-    console.log('[MCPDManager] Restarting daemon to reload configuration...');
+    console.log(`[${this.constructor.name}] Restarting daemon to reload configuration...`);
     const wasRunning = await this.getStatus();
     if (wasRunning.running) {
       await this.stopDaemon();
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
       await this.startDaemon();
-      console.log('[MCPDManager] Daemon restarted successfully');
+      console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
   }
 

@@ -1,19 +1,19 @@
-# MCPD Client
+# mcpd Client
 
-A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's mcpd daemon, featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
+A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's [mcpd](https://github.com/mozilla-ai/mcpd), featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
 
 ## 🎯 Core Components
 
-### 1. **MCPD Client** (Electron App)
+### 1. **mcpd Client** (Electron App)
 Visual desktop application for managing MCP servers with dashboard, configuration editor, and real-time monitoring.
 
-### 2. **MCPD Bridge Server** (STDIO)
+### 2. **mcpd Bridge Server** (STDIO)
 Native MCP protocol bridge for Claude Desktop integration with flexible unified/individual server modes.
 
-### 3. **MCPD HTTP Gateway** (REST/WebSocket)
+### 3. **mcpd HTTP Gateway** (REST/WebSocket)
 Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for web apps, Claude Code, Cursor, and any HTTP client.
 
-### 4. **MCPD Setup CLI**
+### 4. **mcpd Setup CLI**
 Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, HTTP, Tunnel).
 
 ## Features
@@ -28,7 +28,7 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
   - STDIO Bridge for Claude Desktop
   - HTTP Gateway for web/API access
   - Cloudflare Tunnels for external access (no account needed)
-  - Direct MCPD API access
+  - Direct mcpd API access
 - **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
 - **Export Configurations**: Generate configs for various platforms and tools
 
@@ -227,9 +227,9 @@ const response = await fetch('http://localhost:3001/partner/mcpd/filesystem/mcp'
 });
 ```
 
-#### 3. Direct MCPD API
+#### 3. Direct mcpd API
 
-Connect directly to mcpd's HTTP API:
+Connect directly to mcpd's [HTTP API](http://localhost:8090/docs):
 ```javascript
 const response = await fetch('http://localhost:8090/api/v1/servers/filesystem/tools/read_file', {
   method: 'POST',
@@ -241,7 +241,7 @@ const response = await fetch('http://localhost:8090/api/v1/servers/filesystem/to
 ## Architecture Overview
 
 ```
-                    MCPD Daemon
+                    mcpd Daemon
                         ↓
     ┌───────────────────┼───────────────────┐
     ↓                   ↓                   ↓

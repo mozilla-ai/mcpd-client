@@ -1,7 +1,7 @@
 {
   "name": "mcpd-bridge-server",
   "version": "1.0.0",
-  "description": "Universal MCP bridge server that connects to MCPD daemon",
+  "description": "Universal MCP bridge server that connects to mcpd daemon",
   "main": "dist/index.js",
   "type": "module",
   "bin": {

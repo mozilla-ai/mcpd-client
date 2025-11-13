@@ -222,7 +222,7 @@ services:
       setConfigContent(dockerCompose);
     } else if (activeTab === 'api') {
       // Generate API usage examples
-      const apiExamples = `# MCPD Access Methods
+      const apiExamples = `# mcpd Access Methods
 
 ## 1. HTTP Gateway (Recommended for Web/API Access)
 
@@ -283,7 +283,7 @@ ws.send(JSON.stringify({
 }));
 \`\`\`
 
-## 2. Direct MCPD API Access
+## 2. Direct mcpd API Access
 
 Base URL: ${mcpdUrl}
 
@@ -424,7 +424,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
                       marginBottom: 8
                     }}
                   />
-                  <Text type="secondary">This would automatically configure Cursor with your MCPD endpoint</Text>
+                  <Text type="secondary">This would automatically configure Cursor with your mcpd endpoint</Text>
                 </div>
                 
                 <Divider>Manual Configuration</Divider>
@@ -520,7 +520,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
                       <strong>Direct Connections</strong>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Connect directly to each MCP server without MCPD (requires manual config updates)
+                      Connect directly to each MCP server without mcpd (requires manual config updates)
                     </Text>
                   </Space>
                 </Radio>
@@ -529,7 +529,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
               {(bridgeMode === 'unified' || bridgeMode === 'individual-bridge') && (
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Divider style={{ margin: '12px 0' }} />
-                  <Text>MCPD URL:</Text>
+                  <Text>mcpd URL:</Text>
                   <Input
                     value={mcpdUrl}
                     onChange={(e) => setMcpdUrl(e.target.value)}
@@ -590,7 +590,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
         >
           <Alert
             message="Docker Deployment"
-            description="Use this Docker Compose configuration to run MCPD and the bridge server in containers."
+            description="Use this Docker Compose configuration to run mcpd and the bridge server in containers."
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
@@ -608,7 +608,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
         >
           <Alert
             message="Direct API Access"
-            description="Examples for accessing MCPD directly via HTTP API or using the bridge server programmatically."
+            description="Examples for accessing mcpd directly via HTTP API or using the bridge server programmatically."
             type="info"
             showIcon
             style={{ marginBottom: 16 }}

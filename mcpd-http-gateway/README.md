@@ -1,6 +1,6 @@
-# MCPD HTTP Gateway
+# mcpd HTTP Gateway
 
-Universal HTTP/HTTPS gateway for MCPD - expose MCP servers via REST API and WebSocket for use with Claude Code, Cursor, web apps, and any HTTP client.
+Universal HTTP/HTTPS gateway for mcpd - expose MCP servers via REST API and WebSocket for use with Claude Code, Cursor, web apps, and any HTTP client.
 
 ## Features
 
@@ -25,9 +25,9 @@ npx mcpd-http-gateway
 
 ## Quick Start
 
-1. **Start MCPD daemon**:
+1. **Start mcpd daemon**:
    ```bash
-   mcpd start
+   mcpd daemon
    ```
 
 2. **Start the HTTP gateway**:
@@ -111,7 +111,7 @@ Message format:
 ### Environment Variables
 
 - `PORT`: HTTP server port (default: 3000)
-- `MCPD_URL`: MCPD daemon URL (default: http://localhost:8090)
+- `MCPD_URL`: mcpd daemon API URL (default: http://localhost:8090)
 - `API_KEY`: API key for authentication (default: default-dev-key)
 - `ENABLE_CORS`: Enable CORS headers (default: true)
 - `SSL_CERT`: Path to SSL certificate for HTTPS
@@ -239,11 +239,11 @@ HTTP Clients (Claude Code, Cursor, Web Apps, CLI tools)
                     ↓
             HTTP/WebSocket API
                     ↓
-            MCPD HTTP Gateway
+            mcpd HTTP Gateway
                     ↓
               HTTP API Calls
                     ↓
-              MCPD Daemon
+              mcpd Daemon
                     ↓
           Individual MCP Servers
 ```
