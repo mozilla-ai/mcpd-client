@@ -1,5 +1,5 @@
 {
-  "name": "mcpd-bridge-server",
+  "name": "@mozilla-ai/mcpd-bridge-server",
   "version": "1.0.0",
   "description": "Universal MCP bridge server that connects to mcpd daemon",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/mcpd-client"
+    "url": "https://github.com/mozilla-ai/mcpd-client"
   },
   "files": [
     "dist",

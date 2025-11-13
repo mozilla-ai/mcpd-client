@@ -2,16 +2,30 @@
 
 A simple CLI tool that mimics Composio's approach for setting up MCP servers with Cursor, Claude Desktop, and other tools.
 
+## ⚠️ Security Notice
+
+**DO NOT** install `@mcpd/setup` from npm. A package with this name exists on npm, but Mozilla has never published this package. It should be treated as malicious. This package is part of the mcpd-client monorepo and should only be installed from source.
+
+**Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
+
 ## Installation
 
+This package is part of the mcpd-client monorepo. Install from the repository root:
+
 ```bash
-npm install -g @mcpd/setup
+# From the repository root
+npm install
+
+# Build the setup tool
+cd mcpd-setup
+npm run build
+
+# Install the mcpd-setup command globally from source
+cd ..
+./install-global.sh
 ```
 
-Or run directly with npx:
-```bash
-npx @mcpd/setup
-```
+**Note:** You must run `./install-global.sh` to install the `mcpd-setup` command globally before using it.
 
 ## Quick Start
 
@@ -89,7 +103,7 @@ This tool mimics Composio's excellent UX:
 
 | Feature | Composio | mcpd Setup |
 |---------|----------|------------|
-| Setup Command | ✅ `npx @composio/mcp@latest setup` | ✅ `npx @mcpd/setup` |
+| Setup Command | ✅ `npx @composio/mcp@latest setup` | ✅ `mcpd-setup` |
 | Per-Server Setup | ✅ Yes | ✅ Yes |
 | Auto Configuration | ✅ Yes | ✅ Yes |
 | Self-Hosted | ❌ Cloud | ✅ Local |

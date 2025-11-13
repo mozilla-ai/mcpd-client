@@ -2,6 +2,21 @@
 
 A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's [mcpd](https://github.com/mozilla-ai/mcpd), featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
 
+## ⚠️ CRITICAL SECURITY NOTICE
+
+**Mozilla has NEVER published any packages from this project to npm.**
+
+The following malicious packages have been confirmed on the public npm registry:
+- `mcpd-bridge-server` - CONFIRMED MALICIOUS
+- `mcpd-http-gateway` - CONFIRMED EXISTS (treat as malicious)
+- `@mcpd/setup` - CONFIRMED EXISTS (treat as malicious)
+
+If any other packages claiming to be from this project exist on npm, they should also be treated as malicious.
+
+**Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
+
+All components in this repository should **ONLY** be installed from source. Always use the provided `./install-global.sh` script or manual installation from this repository. Never use `npm install` or `npx` with these unscoped package names.
+
 ## 🎯 Core Components
 
 ### 1. **mcpd Client** (Electron App)
@@ -51,6 +66,9 @@ npm install
 
 # Build the application
 npm run build
+
+# Install CLI tools globally (mcpd-bridge, mcpd-setup, etc.)
+./install-global.sh
 
 # Start the application
 npm start
