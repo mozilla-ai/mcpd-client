@@ -43,7 +43,7 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
 
 ```bash
 # Clone the repository
-git clone https://github.com/alexmeckes/mcpd-client.git
+git clone https://github.com/mozilla-ai/mcpd-client.git
 cd mcpd-client
 
 # Install dependencies
