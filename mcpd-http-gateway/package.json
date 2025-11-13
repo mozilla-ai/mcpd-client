@@ -1,5 +1,5 @@
 {
-  "name": "mcpd-http-gateway",
+  "name": "@mozilla-ai/mcpd-http-gateway",
   "version": "1.0.0",
   "description": "HTTP/HTTPS gateway for mcpd - expose MCP servers via REST API",
   "main": "dist/index.js",

@@ -1,5 +1,5 @@
 {
-  "name": "mcpd-setup",
+  "name": "@mozilla-ai/mcpd-setup",
   "version": "1.0.0",
   "description": "Quick setup tool for connecting mcpd servers to Cursor, Claude, and other MCP clients",
   "main": "dist/index.js",
