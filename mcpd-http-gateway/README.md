@@ -2,6 +2,12 @@
 
 Universal HTTP/HTTPS gateway for mcpd - expose MCP servers via REST API and WebSocket for use with Claude Code, Cursor, web apps, and any HTTP client.
 
+## ⚠️ Security Notice
+
+**DO NOT** install `mcpd-http-gateway` from npm. A package with this name exists on npm, but Mozilla has never published this package. It should be treated as malicious. This package is part of the mcpd-client monorepo and should only be installed from source.
+
+**Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
+
 ## Features
 
 - **REST API**: Full RESTful API for all MCP operations
@@ -14,14 +20,22 @@ Universal HTTP/HTTPS gateway for mcpd - expose MCP servers via REST API and WebS
 
 ## Installation
 
+This package is part of the mcpd-client monorepo. Install from the repository root:
+
 ```bash
-npm install -g mcpd-http-gateway
+# From the repository root
+npm install
+
+# Build the HTTP gateway
+cd mcpd-http-gateway
+npm run build
+
+# Install the mcpd-gateway command globally from source
+cd ..
+./install-global.sh
 ```
 
-Or run directly:
-```bash
-npx mcpd-http-gateway
-```
+**Note:** You must run `./install-global.sh` to install the `mcpd-gateway` command globally before using it.
 
 ## Quick Start
 

@@ -127,7 +127,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                     </Text>
                     <div style={{ position: 'relative' }}>
                       <Input.TextArea
-                        value={`npx @mcpd/setup ${selectedServer} --client cursor`}
+                        value={`mcpd-setup ${selectedServer} --client cursor`}
                         readOnly
                         autoSize
                         style={{ fontFamily: 'monospace', fontSize: 14, paddingRight: 40 }}
@@ -136,7 +136,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                         icon={<CopyOutlined />}
                         size="small"
                         style={{ position: 'absolute', right: 4, top: 4 }}
-                        onClick={() => copyCommand(`npx @mcpd/setup ${selectedServer} --client cursor`)}
+                        onClick={() => copyCommand(`mcpd-setup ${selectedServer} --client cursor`)}
                       />
                     </div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
@@ -161,7 +161,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                       For Claude Desktop, use the STDIO bridge:
                     </Text>
                     <Input.TextArea
-                      value={`npx @mcpd/setup ${selectedServer} --client claude`}
+                      value={`mcpd-setup ${selectedServer} --client claude`}
                       readOnly
                       autoSize
                       style={{ fontFamily: 'monospace', fontSize: 14 }}
@@ -191,7 +191,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                       Set up Windsurf with this command:
                     </Text>
                     <Input.TextArea
-                      value={`npx @mcpd/setup ${selectedServer} --client windsurf`}
+                      value={`mcpd-setup ${selectedServer} --client windsurf`}
                       readOnly
                       autoSize
                       style={{ fontFamily: 'monospace', fontSize: 14 }}
@@ -218,7 +218,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                       For custom integrations, run this setup command:
                     </Text>
                     <Input.TextArea
-                      value={`npx @mcpd/setup ${selectedServer} --client http`}
+                      value={`mcpd-setup ${selectedServer} --client http`}
                       readOnly
                       autoSize
                       style={{ fontFamily: 'monospace', fontSize: 14 }}
