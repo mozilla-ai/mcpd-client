@@ -17,16 +17,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexmeckes/mcpd-client.git"
+    "url": "git+https://github.com/mozilla-ai/mcpd-client.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/alexmeckes/mcpd-client/issues"
+    "url": "https://github.com/mozilla-ai/mcpd-client/issues"
   },
-  "homepage": "https://github.com/alexmeckes/mcpd-client#readme",
+  "homepage": "https://github.com/mozilla-ai/mcpd-client#readme",
   "build": {
     "appId": "com.mcpd.client",
     "productName": "mcpd Client",
