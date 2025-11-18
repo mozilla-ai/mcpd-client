@@ -2,12 +2,18 @@
 
 A universal MCP bridge that connects to the mcpd daemon and exposes MCP servers in two modes: unified (all servers) or individual (per-server). This allows any MCP client (Claude Desktop, Claude.ai, etc.) to access your mcpd-managed servers with flexible configuration options.
 
+## ⚠️ Security Notice
+
+**DO NOT** install `mcpd-bridge-server` from npm. A confirmed malicious package has been published under this name. Mozilla has never published this package to npm. This package is part of the mcpd-client monorepo and should only be installed from source.
+
+**Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
+
 ## Features
 
-- **Dual Mode Operation**: 
+- **Dual Mode Operation**:
   - **Unified Mode**: Single connection exposing all servers
   - **Individual Mode**: Separate connection per server for better isolation
-- **Flexible Tool Namespacing**: 
+- **Flexible Tool Namespacing**:
   - Always enabled in unified mode (e.g., `github__create_issue`)
   - Optional in individual mode with `--no-namespace` flag
 - **Dynamic Discovery**: Automatically discovers servers and tools from mcpd
@@ -15,15 +21,22 @@ A universal MCP bridge that connects to the mcpd daemon and exposes MCP servers 
 
 ## Installation
 
-```bash
-npm install -g mcpd-bridge-server
-```
-
-Or run directly with npx:
+This package is part of the mcpd-client monorepo. Install from the repository root:
 
 ```bash
-npx mcpd-bridge-server
+# From the repository root
+npm install
+
+# Build the bridge server
+cd mcpd-bridge-server
+npm run build
+
+# Install the mcpd-bridge command globally from source
+cd ..
+./install-global.sh
 ```
+
+**Note:** You must run `./install-global.sh` to install the `mcpd-bridge` command globally before using it in Claude Desktop or other MCP clients.
 
 ## Usage
 
@@ -58,8 +71,8 @@ Single connection exposing all mcpd servers:
 {
   "mcpServers": {
     "mcpd-all": {
-      "command": "npx",
-      "args": ["mcpd-bridge-server"],
+      "command": "mcpd-bridge",
+      "args": [],
       "env": {
         "MCPD_URL": "http://localhost:8090"
       }
@@ -78,15 +91,15 @@ Separate connections for each server:
 {
   "mcpServers": {
     "mcpd-filesystem": {
-      "command": "npx",
-      "args": ["mcpd-bridge-server", "--server", "filesystem"],
+      "command": "mcpd-bridge",
+      "args": ["--server", "filesystem"],
       "env": {
         "MCPD_URL": "http://localhost:8090"
       }
     },
     "mcpd-github": {
-      "command": "npx",
-      "args": ["mcpd-bridge-server", "--server", "github", "--no-namespace"],
+      "command": "mcpd-bridge",
+      "args": ["--server", "github", "--no-namespace"],
       "env": {
         "MCPD_URL": "http://localhost:8090"
       }
@@ -104,14 +117,14 @@ You can combine both modes for maximum flexibility:
   "mcpServers": {
     // Critical servers individually for better control
     "mcpd-filesystem": {
-      "command": "npx",
-      "args": ["mcpd-bridge-server", "--server", "filesystem"],
+      "command": "mcpd-bridge",
+      "args": ["--server", "filesystem"],
       "env": { "MCPD_URL": "http://localhost:8090" }
     },
     // All other servers through unified bridge
     "mcpd-others": {
-      "command": "npx",
-      "args": ["mcpd-bridge-server"],
+      "command": "mcpd-bridge",
+      "args": [],
       "env": { "MCPD_URL": "http://localhost:8090" }
     }
   }

@@ -25,12 +25,14 @@ echo -e "${BLUE}Installing mcpd-bridge-server...${NC}"
 cd "$SCRIPT_DIR/mcpd-bridge-server"
 npm install
 npm run build
+npm link
 
 # Install mcpd-http-gateway globally
 echo -e "${BLUE}Installing mcpd-http-gateway...${NC}"
 cd "$SCRIPT_DIR/mcpd-http-gateway"
 npm install
 npm run build
+npm link
 
 echo -e "${GREEN}✅ Installation complete!${NC}"
 echo ""
@@ -39,6 +41,8 @@ echo "  mcpd-setup                    - Setup tool for connecting MCP servers"
 echo "  mcpd-setup list               - List available servers"
 echo "  mcpd-setup [server] --client claude  - Setup for Claude Desktop"
 echo "  mcpd-setup [server] --client http    - Start HTTP gateway"
+echo "  mcpd-bridge                   - MCP bridge server for STDIO connections"
+echo "  mcpd-gateway                  - HTTP/HTTPS gateway for MCP servers"
 echo ""
 echo "Example:"
 echo "  mcpd-setup filesystem --client claude"

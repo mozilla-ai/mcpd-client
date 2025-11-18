@@ -34,7 +34,7 @@ async function testMcpdConnection() {
     
     console.log('\n✅ mcpd connection test successful!');
     console.log('\nYou can now use the bridge server with:');
-    console.log('  npx mcpd-bridge-server');
+    console.log('  mcpd-bridge');
     
   } catch (error) {
     console.error('❌ Failed to connect to mcpd:', error.message);

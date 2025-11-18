@@ -124,8 +124,8 @@ ${servers.length > 3 ? `- ... and ${servers.length - 3} more servers` : ''}
         const config = {
           mcpServers: {
             'mcpd-all': {
-              command: 'npx',
-              args: ['mcpd-bridge-server'],
+              command: 'mcpd-bridge',
+              args: [],
               env: {
                 MCPD_URL: mcpdUrl,
               },
@@ -140,13 +140,13 @@ ${servers.length > 3 ? `- ... and ${servers.length - 3} more servers` : ''}
           const config: any = { mcpServers: {} };
           
           for (const server of servers) {
-            const args = ['mcpd-bridge-server', '--server', server.name];
+            const args = ['--server', server.name];
             if (!includeNamespacing) {
               args.push('--no-namespace');
             }
-            
+
             config.mcpServers[`mcpd-${server.name}`] = {
-              command: 'npx',
+              command: 'mcpd-bridge',
               args: args,
               env: {
                 MCPD_URL: mcpdUrl,
@@ -228,9 +228,9 @@ services:
 
 Start the HTTP gateway:
 \`\`\`bash
-npx mcpd-http-gateway
+mcpd-gateway
 # Or with custom settings:
-API_KEY=your-secure-key PORT=3000 npx mcpd-http-gateway
+API_KEY=your-secure-key PORT=3000 mcpd-gateway
 \`\`\`
 
 ### REST API Examples
@@ -308,7 +308,7 @@ curl -X POST ${mcpdUrl}/api/v1/servers/{server_name}/tools/{tool_name}/call \\
 
 Install and run:
 \`\`\`bash
-MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
+MCPD_URL=${mcpdUrl} mcpd-bridge
 \`\`\``;
       
       setConfigContent(apiExamples);
@@ -398,7 +398,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
                 <div>
                   <Text strong>1. Start the MCP-over-HTTP endpoint:</Text>
                   <Input.TextArea
-                    value="npx mcpd-http-gateway start:mcp"
+                    value="mcpd-gateway start:mcp"
                     readOnly
                     autoSize
                     style={{ 
@@ -414,7 +414,7 @@ MCPD_URL=${mcpdUrl} npx mcpd-bridge-server
                 <div>
                   <Text strong>2. Run this setup command:</Text>
                   <Input.TextArea
-                    value='npx @mcpd/setup "http://localhost:3001/mcp" --client cursor'
+                    value='mcpd-setup "http://localhost:3001/mcp" --client cursor'
                     readOnly
                     autoSize
                     style={{ 
