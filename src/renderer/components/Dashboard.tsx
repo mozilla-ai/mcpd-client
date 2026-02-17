@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Alert, Spin, Button } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, CloudServerOutlined, ToolOutlined, ApiOutlined } from '@ant-design/icons';
-import { DaemonStatus, MCPServer } from '@shared/types';
+import React, { useEffect, useState } from "react";
+import { Card, Row, Col, Statistic, Alert, Spin, Button } from "antd";
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  CloudServerOutlined,
+  ToolOutlined,
+  ApiOutlined,
+} from "@ant-design/icons";
+import { DaemonStatus, MCPServer } from "@shared/types";
 
 interface DashboardProps {
   daemonStatus: DaemonStatus;
@@ -22,7 +28,7 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
     setLoading(true);
     try {
       const serverList = await window.electronAPI.listServers();
-      
+
       // Fetch tools for each server and count them
       let toolCount = 0;
       const serversWithTools = await Promise.all(
@@ -41,13 +47,13 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
               tools: [],
             };
           }
-        })
+        }),
       );
-      
+
       setServers(serversWithTools);
       setTotalTools(toolCount);
     } catch (error) {
-      console.error('Failed to load servers:', error);
+      console.error("Failed to load servers:", error);
     } finally {
       setLoading(false);
     }
@@ -60,9 +66,17 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
           <Card>
             <Statistic
               title="Daemon Status"
-              value={daemonStatus.running ? 'Running' : 'Stopped'}
-              valueStyle={{ color: daemonStatus.running ? '#52c41a' : '#ff4d4f' }}
-              prefix={daemonStatus.running ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+              value={daemonStatus.running ? "Running" : "Stopped"}
+              valueStyle={{
+                color: daemonStatus.running ? "#52c41a" : "#ff4d4f",
+              }}
+              prefix={
+                daemonStatus.running ? (
+                  <CheckCircleOutlined />
+                ) : (
+                  <CloseCircleOutlined />
+                )
+              }
             />
           </Card>
         </Col>
@@ -88,7 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
           <Card>
             <Statistic
               title="API Endpoint"
-              value={daemonStatus.apiUrl || 'Not Available'}
+              value={daemonStatus.apiUrl || "Not Available"}
               valueStyle={{ fontSize: 14 }}
             />
           </Card>
@@ -97,12 +111,14 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col span={24}>
-          <Card 
+          <Card
             title="System Status"
             extra={
               <Button
                 icon={<ApiOutlined />}
-                onClick={() => window.open(`http://localhost:8090/api/v1/servers`, '_blank')}
+                onClick={() =>
+                  window.open(`http://localhost:8090/api/v1/servers`, "_blank")
+                }
                 disabled={!daemonStatus.running}
               >
                 API Docs
@@ -117,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
                 showIcon
               />
             ) : loading ? (
-              <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ textAlign: "center", padding: 40 }}>
                 <Spin size="large" />
               </div>
             ) : (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Row,
@@ -12,7 +12,7 @@ import {
   Divider,
   Modal,
   Input,
-} from 'antd';
+} from "antd";
 import {
   RocketOutlined,
   CloudOutlined,
@@ -22,7 +22,7 @@ import {
   DesktopOutlined,
   GlobalOutlined,
   LoadingOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -34,8 +34,7 @@ interface ServerInfo {
 const QuickSetup: React.FC = () => {
   const [servers, setServers] = useState<ServerInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [setupLoading, setSetupLoading] = useState<string>('');
-  const [httpUrl, setHttpUrl] = useState<string>('');
+  const [setupLoading, setSetupLoading] = useState<string>("");
 
   useEffect(() => {
     loadServers();
@@ -45,7 +44,7 @@ const QuickSetup: React.FC = () => {
     setLoading(true);
     try {
       const serverList = await window.electronAPI.listServers();
-      
+
       // Fetch tools for each server
       const serversWithTools = await Promise.all(
         serverList.map(async (server: any) => {
@@ -62,13 +61,13 @@ const QuickSetup: React.FC = () => {
               tools: [],
             };
           }
-        })
+        }),
       );
-      
+
       setServers(serversWithTools);
     } catch (error) {
-      console.error('Failed to load servers:', error);
-      message.error('Failed to load servers. Make sure the daemon is running.');
+      console.error("Failed to load servers:", error);
+      message.error("Failed to load servers. Make sure the daemon is running.");
     } finally {
       setLoading(false);
     }
@@ -81,13 +80,13 @@ const QuickSetup: React.FC = () => {
       if (result.success) {
         message.success(result.message);
       } else {
-        message.error('Failed to setup Claude Desktop');
+        message.error("Failed to setup Claude Desktop");
       }
     } catch (error) {
-      console.error('Failed to setup Claude:', error);
-      message.error('Failed to setup Claude Desktop');
+      console.error("Failed to setup Claude:", error);
+      message.error("Failed to setup Claude Desktop");
     } finally {
-      setSetupLoading('');
+      setSetupLoading("");
     }
   };
 
@@ -96,9 +95,8 @@ const QuickSetup: React.FC = () => {
     try {
       const result = await window.electronAPI.setupHTTP(serverName);
       if (result.success) {
-        setHttpUrl(result.url || '');
         Modal.success({
-          title: 'mcpd HTTP API',
+          title: "mcpd HTTP API",
           content: (
             <div>
               <Paragraph>{result.message}</Paragraph>
@@ -122,10 +120,10 @@ const QuickSetup: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to get HTTP info:', error);
-      message.error('Failed to get HTTP API info');
+      console.error("Failed to get HTTP info:", error);
+      message.error("Failed to get HTTP API info");
     } finally {
-      setSetupLoading('');
+      setSetupLoading("");
     }
   };
 
@@ -135,22 +133,25 @@ const QuickSetup: React.FC = () => {
       const result = await window.electronAPI.setupCursor(serverName);
       message.info(result.message);
     } catch (error) {
-      console.error('Failed to setup Cursor:', error);
-      message.error('Failed to setup Cursor');
+      console.error("Failed to setup Cursor:", error);
+      message.error("Failed to setup Cursor");
     } finally {
-      setSetupLoading('');
+      setSetupLoading("");
     }
   };
 
   const getServerIcon = (name: string) => {
-    if (name.includes('filesystem')) return <CloudOutlined />;
+    if (name.includes("filesystem")) return <CloudOutlined />;
     return <CodeOutlined />;
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: "24px" }}>
       <div style={{ marginBottom: 32 }}>
-        <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Title
+          level={2}
+          style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}
+        >
           <RocketOutlined />
           Connect
         </Title>
@@ -175,7 +176,7 @@ const QuickSetup: React.FC = () => {
 
       {loading ? (
         <Card>
-          <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ textAlign: "center", padding: "40px" }}>
             <LoadingOutlined style={{ fontSize: 24 }} />
             <div style={{ marginTop: 16 }}>Loading servers...</div>
           </div>
@@ -201,7 +202,7 @@ const QuickSetup: React.FC = () => {
                       </div>
                     </Space>
                   </Col>
-                  
+
                   <Col span={18}>
                     <Space size="middle" wrap>
                       <Button
@@ -212,7 +213,7 @@ const QuickSetup: React.FC = () => {
                       >
                         Connect to Claude Desktop
                       </Button>
-                      
+
                       <Button
                         icon={<ApiOutlined />}
                         onClick={() => setupCursor(server.name)}
@@ -231,12 +232,14 @@ const QuickSetup: React.FC = () => {
                     </Space>
                   </Col>
                 </Row>
-                
+
                 {server.tools.length > 0 && (
                   <>
-                    <Divider style={{ margin: '16px 0 8px' }} />
+                    <Divider style={{ margin: "16px 0 8px" }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 12 }}>Available tools: </Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Available tools:{" "}
+                      </Text>
                       <Space wrap style={{ marginTop: 4 }}>
                         {server.tools.slice(0, 8).map((tool) => (
                           <Tag key={tool} style={{ fontSize: 11 }}>
@@ -264,7 +267,7 @@ const QuickSetup: React.FC = () => {
           <Row gutter={[16, 16]}>
             <Col span={8}>
               <Space>
-                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <CheckCircleOutlined style={{ color: "#52c41a" }} />
                 <div>
                   <Text strong>Claude Desktop</Text>
                   <div>
@@ -277,7 +280,7 @@ const QuickSetup: React.FC = () => {
             </Col>
             <Col span={8}>
               <Space>
-                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <CheckCircleOutlined style={{ color: "#52c41a" }} />
                 <div>
                   <Text strong>Cursor</Text>
                   <div>
@@ -290,7 +293,7 @@ const QuickSetup: React.FC = () => {
             </Col>
             <Col span={8}>
               <Space>
-                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <CheckCircleOutlined style={{ color: "#52c41a" }} />
                 <div>
                   <Text strong>HTTP API</Text>
                   <div>

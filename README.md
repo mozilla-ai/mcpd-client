@@ -7,6 +7,7 @@ A desktop app and CLI for managing MCP (Model Context Protocol) servers with Moz
 **Mozilla has NEVER published any packages from this project to npm.**
 
 The following malicious packages have been confirmed on the public npm registry:
+
 - `mcpd-bridge-server` - CONFIRMED MALICIOUS
 - `mcpd-http-gateway` - CONFIRMED EXISTS (treat as malicious)
 - `@mcpd/setup` - CONFIRMED EXISTS (treat as malicious)
@@ -18,9 +19,11 @@ If any other packages claiming to be from this project exist on npm, they should
 ## Core Components
 
 ### 1. **mcpd Client** (Electron App)
+
 Visual desktop application for managing MCP servers with dashboard, configuration editor, and real-time monitoring.
 
 ### 2. **mcpd Setup CLI**
+
 Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, Windsurf, HTTP).
 
 ## Features
@@ -132,6 +135,7 @@ The application consists of:
 The Connect tab provides the easiest way to integrate your MCP servers with various tools.
 
 For each configured server, click a button:
+
 - **Connect to Claude Desktop** - Configures `claude_desktop_config.json` with mcpd-proxy
 - **Connect to Cursor** - Configures `~/.cursor/mcp.json` with mcpd-proxy
 - **HTTP API Info** - Shows the mcpd HTTP API endpoint
@@ -139,6 +143,7 @@ For each configured server, click a button:
 ### CLI Tool
 
 After running `./install-global.sh`, you can use these commands from anywhere:
+
 ```bash
 # List available servers
 mcpd-setup list
@@ -198,7 +203,7 @@ const tools = await client.servers.filesystem.getTools();
 
 // Call a tool.
 const result = await client.servers.filesystem.callTool("read_file", {
-  path: "/tmp/test.txt"
+  path: "/tmp/test.txt",
 });
 ```
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Tabs,
@@ -11,8 +11,7 @@ import {
   Divider,
   Radio,
   Input,
-  Checkbox,
-} from 'antd';
+} from "antd";
 import {
   CopyOutlined,
   DownloadOutlined,
@@ -20,23 +19,28 @@ import {
   DesktopOutlined,
   ApiOutlined,
   CloudServerOutlined,
-} from '@ant-design/icons';
-import MonacoEditor from '@monaco-editor/react';
+} from "@ant-design/icons";
+import MonacoEditor from "@monaco-editor/react";
 
 const { TabPane } = Tabs;
-const { Title, Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 interface ExportConfigModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose }) => {
-  const [activeTab, setActiveTab] = useState('claude-desktop');
-  const [configContent, setConfigContent] = useState('');
-  const [bridgeMode, setBridgeMode] = useState<'unified' | 'individual' | 'direct'>('unified');
-  const [mcpdUrl, setMcpdUrl] = useState('http://localhost:8090');
-  const [includeNamespacing, setIncludeNamespacing] = useState(true);
+const ExportConfigModal: React.FC<ExportConfigModalProps> = ({
+  visible,
+  onClose,
+}) => {
+  const [activeTab, setActiveTab] = useState("claude-desktop");
+  const [configContent, setConfigContent] = useState("");
+  const [bridgeMode, setBridgeMode] = useState<
+    "unified" | "individual" | "direct"
+  >("unified");
+  const [mcpdUrl, setMcpdUrl] = useState("http://localhost:8090");
+  const [includeNamespacing] = useState(true);
 
   useEffect(() => {
     if (visible) {
@@ -45,14 +49,14 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
   }, [visible, activeTab, bridgeMode, mcpdUrl, includeNamespacing]);
 
   const generateConfig = async () => {
-    if (activeTab === 'claude-desktop') {
-      if (bridgeMode === 'unified') {
+    if (activeTab === "claude-desktop") {
+      if (bridgeMode === "unified") {
         // Unified mcpd-proxy config (all servers via single proxy).
         const config = {
           mcpServers: {
-            'mcpd': {
-              command: 'npx',
-              args: ['@mozilla-ai/mcpd-proxy'],
+            mcpd: {
+              command: "npx",
+              args: ["@mozilla-ai/mcpd-proxy"],
               env: {
                 MCPD_ADDR: mcpdUrl,
               },
@@ -60,7 +64,7 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
           },
         };
         setConfigContent(JSON.stringify(config, null, 2));
-      } else if (bridgeMode === 'individual') {
+      } else if (bridgeMode === "individual") {
         // Individual mcpd-proxy configs (one per server).
         try {
           const servers = await window.electronAPI.listServers();
@@ -68,8 +72,8 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
 
           for (const server of servers) {
             config.mcpServers[`mcpd-${server.name}`] = {
-              command: 'npx',
-              args: ['@mozilla-ai/mcpd-proxy'],
+              command: "npx",
+              args: ["@mozilla-ai/mcpd-proxy"],
               env: {
                 MCPD_ADDR: mcpdUrl,
               },
@@ -78,8 +82,8 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
 
           setConfigContent(JSON.stringify(config, null, 2));
         } catch (error) {
-          console.error('Failed to generate config:', error);
-          message.error('Failed to generate configuration');
+          console.error("Failed to generate config:", error);
+          message.error("Failed to generate configuration");
         }
       } else {
         // Direct server configs (no proxy).
@@ -89,10 +93,13 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
 
           for (const server of servers) {
             // Parse the package string to determine runtime.
-            const [runtime, pkg] = server.package?.split('::') || ['npx', server.package];
+            const [runtime, pkg] = server.package?.split("::") || [
+              "npx",
+              server.package,
+            ];
 
             config.mcpServers[server.name] = {
-              command: runtime || 'npx',
+              command: runtime || "npx",
               args: [pkg || server.package],
             };
 
@@ -110,11 +117,11 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
 
           setConfigContent(JSON.stringify(config, null, 2));
         } catch (error) {
-          console.error('Failed to generate config:', error);
-          message.error('Failed to generate configuration');
+          console.error("Failed to generate config:", error);
+          message.error("Failed to generate configuration");
         }
       }
-    } else if (activeTab === 'api') {
+    } else if (activeTab === "api") {
       // Generate API usage examples using mcpd's built-in HTTP API.
       const apiExamples = `# mcpd Access Methods
 
@@ -182,19 +189,19 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(configContent);
-    message.success('Configuration copied to clipboard');
+    message.success("Configuration copied to clipboard");
   };
 
   const downloadConfig = () => {
-    const blob = new Blob([configContent], { type: 'text/plain' });
+    const blob = new Blob([configContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
 
-    let filename = 'config';
-    if (activeTab === 'claude-desktop') {
-      filename = 'claude_desktop_config.json';
-    } else if (activeTab === 'api') {
-      filename = 'api-examples.md';
+    let filename = "config";
+    if (activeTab === "claude-desktop") {
+      filename = "claude_desktop_config.json";
+    } else if (activeTab === "api") {
+      filename = "api-examples.md";
     }
 
     a.href = url;
@@ -214,11 +221,7 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
         <Button key="close" onClick={onClose}>
           Close
         </Button>,
-        <Button
-          key="copy"
-          icon={<CopyOutlined />}
-          onClick={copyToClipboard}
-        >
+        <Button key="copy" icon={<CopyOutlined />} onClick={copyToClipboard}>
           Copy to Clipboard
         </Button>,
         <Button
@@ -241,7 +244,7 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
           }
           key="claude-desktop"
         >
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <Space direction="vertical" style={{ width: "100%" }} size="large">
             <Alert
               message="Claude Desktop Configuration"
               description="Copy this configuration to your Claude Desktop config file located at:"
@@ -249,7 +252,10 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
               showIcon
               action={
                 <Space direction="vertical" align="end">
-                  <Text code>~/Library/Application Support/Claude/claude_desktop_config.json</Text>
+                  <Text code>
+                    ~/Library/Application
+                    Support/Claude/claude_desktop_config.json
+                  </Text>
                   <Text type="secondary">(macOS)</Text>
                   <Text code>%APPDATA%\Claude\claude_desktop_config.json</Text>
                   <Text type="secondary">(Windows)</Text>
@@ -261,7 +267,12 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
               <Radio.Group
                 value={bridgeMode}
                 onChange={(e) => setBridgeMode(e.target.value)}
-                style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}
+                style={{
+                  marginBottom: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
               >
                 <Radio value="unified">
                   <Space direction="vertical" style={{ marginLeft: 24 }}>
@@ -271,7 +282,8 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
                       <Text type="secondary">(Recommended)</Text>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Single mcpd-proxy connection exposing all servers with namespaced tools
+                      Single mcpd-proxy connection exposing all servers with
+                      namespaced tools
                     </Text>
                   </Space>
                 </Radio>
@@ -282,7 +294,8 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
                       <strong>Individual Proxies</strong>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Separate mcpd-proxy connection for each server (better isolation)
+                      Separate mcpd-proxy connection for each server (better
+                      isolation)
                     </Text>
                   </Space>
                 </Radio>
@@ -293,15 +306,16 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
                       <strong>Direct Connections</strong>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Connect directly to each MCP server without mcpd (requires manual config updates)
+                      Connect directly to each MCP server without mcpd (requires
+                      manual config updates)
                     </Text>
                   </Space>
                 </Radio>
               </Radio.Group>
 
-              {(bridgeMode === 'unified' || bridgeMode === 'individual') && (
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Divider style={{ margin: '12px 0' }} />
+              {(bridgeMode === "unified" || bridgeMode === "individual") && (
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Divider style={{ margin: "12px 0" }} />
                   <Text>mcpd URL:</Text>
                   <Input
                     value={mcpdUrl}
@@ -310,9 +324,13 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
                   />
 
                   <Alert
-                    message={bridgeMode === 'unified' ? 'Unified Proxy Benefits' : 'Individual Proxy Benefits'}
+                    message={
+                      bridgeMode === "unified"
+                        ? "Unified Proxy Benefits"
+                        : "Individual Proxy Benefits"
+                    }
                     description={
-                      bridgeMode === 'unified' ? (
+                      bridgeMode === "unified" ? (
                         <ul style={{ marginBottom: 0, fontSize: 12 }}>
                           <li>Single configuration entry</li>
                           <li>All servers automatically available</li>
@@ -358,17 +376,14 @@ MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
 
       <MonacoEditor
         height="400px"
-        language={
-          activeTab === 'claude-desktop' ? 'json' :
-          'markdown'
-        }
+        language={activeTab === "claude-desktop" ? "json" : "markdown"}
         theme="vs-dark"
         value={configContent}
         options={{
           readOnly: true,
           minimap: { enabled: false },
           fontSize: 13,
-          wordWrap: 'on',
+          wordWrap: "on",
         }}
       />
     </Modal>
