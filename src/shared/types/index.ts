@@ -22,11 +22,9 @@ export interface DaemonStatus {
 export interface ConfigEntry {
   name: string;
   package: string;
-  tools: string[];
-  required_env?: string[];
-  required_args?: string[];
-  required_args_positional?: string[];
-  required_args_bool?: string[];
+  tools?: string[];
+  env?: Record<string, string>;
+  args?: string[];
 }
 
 export interface IpcChannels {
@@ -38,7 +36,7 @@ export interface IpcChannels {
 
   // Server management
   "servers:list": () => Promise<MCPServer[]>;
-  "servers:add": (name: string, packageName: string) => Promise<void>;
+  "servers:add": (server: ConfigEntry) => Promise<void>;
   "servers:remove": (name: string) => Promise<void>;
   "servers:tools": (name: string) => Promise<MCPTool[]>;
 

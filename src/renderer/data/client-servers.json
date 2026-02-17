@@ -190,7 +190,7 @@
       }
     },
     "arguments": {
-      "vault_path": {
+      "--vault-path": {
         "name": "--vault-path",
         "description": "Path to Obsidian vault",
         "type": "argument",
