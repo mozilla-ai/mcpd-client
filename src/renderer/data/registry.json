@@ -868,10 +868,7 @@
       "name": "Monday.com",
       "url": "https://monday.com"
     },
-    "tags": [
-      "monday.com",
-      "API"
-    ],
+    "tags": ["monday.com", "API"],
     "tools": [
       {
         "name": "all_widgets_schema",
@@ -1399,10 +1396,7 @@
       "name": "Davide Eynard",
       "url": "https://github.com/aittalam"
     },
-    "tags": [
-      "knowledge base",
-      "wikipedia"
-    ],
+    "tags": ["knowledge base", "wikipedia"],
     "tools": [
       {
         "description": "List all ZIM files in allowed directories",
@@ -1450,11 +1444,7 @@
       "name": "ihor-sokoliuk",
       "url": "https://github.com/ihor-sokoliuk"
     },
-    "tags": [
-      "search engine",
-      "web search",
-      "content fetching"
-    ],
+    "tags": ["search engine", "web search", "content fetching"],
     "tools": [
       {
         "description": "Performs a web search using the SearXNG API, ideal for general queries, news, articles, and online content. Use this for broad information gathering, recent events, or when you need diverse web sources.",
@@ -1498,13 +1488,7 @@
       "name": "redis",
       "url": "https://github.com/redis"
     },
-    "tags": [
-      "redis",
-      "database",
-      "cache",
-      "key-value",
-      "storage"
-    ],
+    "tags": ["redis", "database", "cache", "key-value", "storage"],
     "tools": [
       {
         "name": "client_list",

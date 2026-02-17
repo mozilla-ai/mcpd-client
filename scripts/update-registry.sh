@@ -11,6 +11,8 @@ TMP="${REGISTRY_PATH}.tmp"
 
 if curl -fsSL --connect-timeout 5 -o "${TMP}" "${URL}" 2>/dev/null; then
   mv "${TMP}" "${REGISTRY_PATH}"
+  # Format to match project style so lint checks pass.
+  npx prettier --write "${REGISTRY_PATH}" >/dev/null 2>&1 || true
   echo "Registry updated at ${REGISTRY_PATH}"
 else
   rm -f "${TMP}"
