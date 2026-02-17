@@ -21,8 +21,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
-            mcpd-bridge-server/package-lock.json
-            mcpd-http-gateway/package-lock.json
             mcpd-setup/package-lock.json
 
       # Root Electron app.
@@ -36,14 +34,6 @@ jobs:
         run: npm run build
 
       # Sub-packages.
-      - name: Install and build mcpd-bridge-server
-        working-directory: mcpd-bridge-server
-        run: npm ci && npm run build
-
-      - name: Install and build mcpd-http-gateway
-        working-directory: mcpd-http-gateway
-        run: npm ci && npm run build
-
       - name: Install and build mcpd-setup
         working-directory: mcpd-setup
         run: npm ci && npm run build

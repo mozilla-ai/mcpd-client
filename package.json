@@ -42,7 +42,9 @@
       {
         "from": "resources/",
         "to": "resources/",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "mac": {
@@ -78,8 +80,8 @@
     "@ant-design/icons": "^6.0.0",
     "@iarna/toml": "^2.2.5",
     "@monaco-editor/react": "^4.7.0",
+    "@mozilla-ai/mcpd": "^0.1.0",
     "antd": "^5.27.0",
-    "axios": "^1.13.5",
     "monaco-editor": "^0.52.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -98,11 +98,11 @@ const QuickSetup: React.FC = () => {
       if (result.success) {
         setHttpUrl(result.url || '');
         Modal.success({
-          title: 'HTTP Gateway Started',
+          title: 'mcpd HTTP API',
           content: (
             <div>
               <Paragraph>{result.message}</Paragraph>
-              <Input.TextArea 
+              <Input.TextArea
                 value={result.url}
                 readOnly
                 autoSize
@@ -112,11 +112,9 @@ const QuickSetup: React.FC = () => {
                 <Text strong>Example usage:</Text>
               </Paragraph>
               <Input.TextArea
-                value={`curl -X POST ${result.url} \\
-  -H "Content-Type: application/json" \\
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}
+                value={`curl ${result.url}`}
                 readOnly
-                autoSize={{ minRows: 3 }}
+                autoSize={{ minRows: 1 }}
               />
             </div>
           ),
@@ -124,8 +122,8 @@ const QuickSetup: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to setup HTTP:', error);
-      message.error('Failed to start HTTP gateway');
+      console.error('Failed to get HTTP info:', error);
+      message.error('Failed to get HTTP API info');
     } finally {
       setSetupLoading('');
     }
@@ -216,20 +214,19 @@ const QuickSetup: React.FC = () => {
                       </Button>
                       
                       <Button
+                        icon={<ApiOutlined />}
+                        onClick={() => setupCursor(server.name)}
+                        loading={setupLoading === `cursor-${server.name}`}
+                      >
+                        Connect to Cursor
+                      </Button>
+
+                      <Button
                         icon={<GlobalOutlined />}
                         onClick={() => setupHTTP(server.name)}
                         loading={setupLoading === `http-${server.name}`}
                       >
-                        Start HTTP Gateway
-                      </Button>
-                      
-                      <Button
-                        icon={<ApiOutlined />}
-                        onClick={() => setupCursor(server.name)}
-                        loading={setupLoading === `cursor-${server.name}`}
-                        disabled
-                      >
-                        Connect to Cursor (Coming Soon)
+                        HTTP API Info
                       </Button>
                     </Space>
                   </Col>
@@ -282,10 +279,10 @@ const QuickSetup: React.FC = () => {
               <Space>
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
                 <div>
-                  <Text strong>HTTP Gateway</Text>
+                  <Text strong>Cursor</Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Starts a local HTTP server for API access
+                      Configures mcpd-proxy in Cursor's MCP settings
                     </Text>
                   </div>
                 </div>
@@ -293,12 +290,12 @@ const QuickSetup: React.FC = () => {
             </Col>
             <Col span={8}>
               <Space>
-                <CheckCircleOutlined style={{ color: '#faad14' }} />
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
                 <div>
-                  <Text strong>Cursor</Text>
+                  <Text strong>HTTP API</Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Integration coming soon
+                      Access mcpd directly via HTTP on port 8090
                     </Text>
                   </div>
                 </div>

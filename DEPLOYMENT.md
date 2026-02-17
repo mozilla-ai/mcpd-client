@@ -1,10 +1,57 @@
 # Deployment Guide for mcpd Client
 
-## Exposing Local MCP Servers to External Services
+## Accessing MCP Servers
 
-When you need to connect your local MCP servers to external services (like a Railway app), you have several options:
+mcpd exposes an HTTP API directly on port 8090. There is no need for a separate gateway process.
 
-### Option 1: Using Cloudflare Tunnel (Recommended - Free, No Account)
+### Local Access
+
+The mcpd daemon provides a built-in HTTP API:
+```bash
+# List servers
+curl http://localhost:8090/api/v1/servers
+
+# Get server tools
+curl http://localhost:8090/api/v1/servers/filesystem/tools
+
+# Call a tool
+curl -X POST http://localhost:8090/api/v1/servers/filesystem/tools/read_file/call \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"path": "/tmp/test.txt"}}'
+```
+
+Or use the JavaScript SDK:
+```bash
+npm install @mozilla-ai/mcpd
+```
+
+```javascript
+import { McpdClient } from "@mozilla-ai/mcpd";
+
+const client = new McpdClient({ apiEndpoint: "http://localhost:8090" });
+const result = await client.servers.filesystem.callTool("read_file", {
+  path: "/tmp/test.txt"
+});
+```
+
+### IDE Integrations (STDIO)
+
+For Claude Desktop, Cursor, and other IDEs that require STDIO-based MCP servers, use mcpd-proxy:
+```bash
+npx @mozilla-ai/mcpd-proxy
+```
+
+Or use the setup CLI:
+```bash
+mcpd-setup filesystem --client claude
+mcpd-setup filesystem --client cursor
+```
+
+## Exposing to External Services
+
+When you need to connect external services to your local mcpd instance, you can tunnel the mcpd HTTP API directly.
+
+### Option 1: Cloudflare Tunnel (Recommended - Free, No Account)
 
 **One command setup:**
 ```bash
@@ -13,134 +60,71 @@ mcpd-setup filesystem --client tunnel
 
 This will:
 - Automatically install cloudflared if not present
-- Start the HTTP gateway
-- Create a public tunnel
-- Display the public URL for your Railway app
+- Create a public tunnel to mcpd on port 8090
+- Display the public URL
 
-Example output:
-```
-✅ Your MCP server is now accessible from anywhere!
-
-🌍 Public URL: https://random-name.trycloudflare.com/partner/mcpd/filesystem/mcp
-```
-
-### Option 2: Using ngrok (Requires Account)
-
-1. **Install ngrok and authenticate:**
+Or manually:
 ```bash
-# Sign up at https://ngrok.com
-# Then authenticate:
+cloudflared tunnel --url http://localhost:8090
+```
+
+### Option 2: ngrok (Requires Account)
+
+```bash
+# Sign up at https://ngrok.com and authenticate
 ngrok config add-authtoken YOUR_AUTH_TOKEN
+
+# Create tunnel to mcpd
+ngrok http 8090
 ```
 
-2. **Start the HTTP gateway:**
+### Option 3: localtunnel (Simple & Free)
+
 ```bash
-mcpd-setup filesystem --client http
+npx localtunnel --port 8090
 ```
 
-3. **Create ngrok tunnel:**
-```bash
-ngrok http 3001
-```
+## Example: Connecting External App to Local mcpd
 
-4. **Use the ngrok URL in your Railway app:**
-```
-https://abc123.ngrok.io/partner/mcpd/filesystem/mcp
-```
-
-### Option 3: Using localtunnel (Simple & Free)
-
-1. **Install and run localtunnel:**
-```bash
-npx localtunnel --port 3001
-```
-
-2. **Use the provided URL:**
-```
-https://random-name.loca.lt/partner/mcpd/filesystem/mcp
-```
-
-### Option 4: Deploy the Gateway to Railway
-
-Instead of tunneling, you could deploy the HTTP gateway itself to Railway:
-
-1. **Create a new Railway project**
-
-2. **Deploy the gateway:**
-```bash
-cd mcpd-http-gateway
-railway init
-railway up
-```
-
-3. **Set environment variables in Railway:**
-```
-MCPD_URL=http://your-local-ip:8090
-PORT=3001
-```
-
-4. **Use Railway's public URL:**
-```
-https://your-app.railway.app/partner/mcpd/filesystem/mcp
-```
-
-## Example: Connecting Railway App to Local MCP
-
-### In your Railway app code:
 ```javascript
-const MCP_ENDPOINT = process.env.MCP_ENDPOINT || 'https://your-tunnel.ngrok.io/partner/mcpd/filesystem/mcp';
+const MCPD_URL = process.env.MCPD_URL || 'https://your-tunnel.trycloudflare.com';
 
-async function callMCPTool(toolName, args) {
-  const response = await fetch(MCP_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method: 'tools/call',
-      params: {
-        name: toolName,
-        arguments: args
-      }
-    })
-  });
-  
+async function callMCPTool(server, toolName, args) {
+  const response = await fetch(
+    `${MCPD_URL}/api/v1/servers/${server}/tools/${toolName}/call`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: args })
+    }
+  );
+
   return response.json();
 }
 
-// Example usage
-const result = await callMCPTool('read_file', { path: '/tmp/data.txt' });
+// Example usage.
+const result = await callMCPTool('filesystem', 'read_file', { path: '/tmp/data.txt' });
 ```
 
 ## Security Considerations
 
 When exposing local services:
 
-1. **Add authentication** to the HTTP gateway (modify the API key in the code)
-2. **Use HTTPS** tunnels only
-3. **Restrict CORS** origins in production
-4. **Monitor usage** to prevent abuse
-5. **Consider deploying** the gateway to the cloud instead of tunneling
+1. **Use HTTPS** tunnels only
+2. **Restrict access** using mcpd's API key support
+3. **Monitor usage** to prevent abuse
+4. **Consider deploying** mcpd to the cloud instead of tunneling
 
 ## Quick Start Commands
 
 ```bash
-# Local only
-mcpd-setup filesystem --client http
+# Local HTTP API (always available when mcpd is running)
+curl http://localhost:8090/api/v1/servers
 
-# With Cloudflare Tunnel (simplest - no account needed)
+# IDE setup (STDIO via mcpd-proxy)
+mcpd-setup filesystem --client claude
+mcpd-setup filesystem --client cursor
+
+# With Cloudflare Tunnel (no account needed)
 mcpd-setup filesystem --client tunnel
-
-# With ngrok (requires account)
-ngrok http 3001
-
-# With localtunnel
-npx localtunnel --port 3001
 ```
-
-The URL pattern is always:
-```
-https://YOUR-TUNNEL-DOMAIN/partner/mcpd/[server-name]/mcp
-```
-
-Replace `[server-name]` with your actual server (e.g., `filesystem`, `github`, etc.)
