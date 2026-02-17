@@ -130,6 +130,12 @@ function applyFilters(
   });
 }
 
+// Check if a license string looks like a real SPDX identifier.
+const INVALID_LICENSE_RE = /not (given|found)|unknown|\[/i;
+function isValidLicense(license: string | undefined): license is string {
+  return !!license && !INVALID_LICENSE_RE.test(license);
+}
+
 // Extract unique values from all servers for filter dropdowns.
 function extractFilterOptions(servers: RegistryServer[]) {
   const categories = new Set<string>();
@@ -139,7 +145,7 @@ function extractFilterOptions(servers: RegistryServer[]) {
 
   for (const s of servers) {
     s.categories?.forEach((c) => categories.add(c));
-    if (s.license) licenses.add(s.license);
+    if (isValidLicense(s.license)) licenses.add(s.license);
     Object.values(s.installations).forEach((inst) =>
       runtimes.add(inst.runtime),
     );
@@ -604,7 +610,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                   {rt}
                 </Tag>
               ))}
-              {server.license && (
+              {isValidLicense(server.license) && (
                 <Tag color="purple" style={{ fontSize: 11 }}>
                   {server.license}
                 </Tag>
