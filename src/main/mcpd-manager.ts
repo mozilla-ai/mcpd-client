@@ -1,10 +1,10 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { McpdClient, ConnectionError } from '@mozilla-ai/mcpd';
+import { McpdClient } from '@mozilla-ai/mcpd';
 import * as TOML from '@iarna/toml';
 import { app } from 'electron';
-import { DaemonStatus, MCPServer, MCPTool } from '@shared/types';
+import { DaemonStatus, MCPTool } from '@shared/types';
 
 export class McpdManager {
   private daemonProcess: ChildProcess | null = null;
