@@ -330,6 +330,20 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     [filteredServers],
   );
 
+  const fetchLiveRegistry = async () => {
+    setLoadingLive(true);
+    try {
+      const results = await window.electronAPI.searchServers("*");
+      if (Array.isArray(results)) {
+        setLiveServers(results.map((s) => ({ ...s, _source: "mozilla-ai" })));
+      }
+    } catch {
+      // Daemon may not be running; bundled data is sufficient.
+    } finally {
+      setLoadingLive(false);
+    }
+  };
+
   // Fetch live registry from daemon when modal opens.
   useEffect(() => {
     if (visible) {
@@ -360,20 +374,6 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     }
   }, [selectedServer, selectedRuntime, argValues, selectedTools]);
 
-  const fetchLiveRegistry = async () => {
-    setLoadingLive(true);
-    try {
-      const results = await window.electronAPI.searchServers("*");
-      if (Array.isArray(results)) {
-        setLiveServers(results.map((s) => ({ ...s, _source: "mozilla-ai" })));
-      }
-    } catch {
-      // Daemon may not be running; bundled data is sufficient.
-    } finally {
-      setLoadingLive(false);
-    }
-  };
-
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, React.ReactNode> = {
       Development: <GithubOutlined />,
@@ -393,6 +393,12 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
 
     // Pick the recommended or first installation.
     const entries = Object.entries(server.installations);
+    if (entries.length === 0) {
+      setSelectedRuntime("");
+      setSelectedTools(server.tools.map((t) => t.name));
+      setArgValues({});
+      return;
+    }
     const recommended = entries.find(([, inst]) => inst.recommended);
     const [runtimeKey, installation] = recommended ?? entries[0];
     setSelectedRuntime(runtimeKey);
