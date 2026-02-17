@@ -4,8 +4,9 @@
   "description": "",
   "main": "dist/main.js",
   "scripts": {
+    "update-registry": "bash scripts/update-registry.sh",
     "dev": "npm run build && electron .",
-    "build": "webpack --mode production",
+    "build": "npm run update-registry && webpack --mode production",
     "build:main": "webpack --config webpack.config.js --target 0",
     "build:renderer": "webpack --config webpack.config.js --target 1",
     "start": "npm run build && electron .",

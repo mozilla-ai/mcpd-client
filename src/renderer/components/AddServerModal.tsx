@@ -31,10 +31,12 @@ import {
   GlobalOutlined,
   LoadingOutlined,
   SafetyCertificateOutlined,
+  FilterOutlined,
 } from "@ant-design/icons";
 import MonacoEditor from "@monaco-editor/react";
 import { RegistryServer, RegistryArgument, RegistryData } from "@shared/types";
 import bundledRegistry from "../data/registry.json";
+import clientServers from "../data/client-servers.json";
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
@@ -45,6 +47,16 @@ interface AddServerModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+interface ServerFilters {
+  category?: string;
+  official?: boolean;
+  license?: string;
+  runtime?: string;
+  tags: string[];
+}
+
+const EMPTY_FILTERS: ServerFilters = { tags: [] };
 
 // Convert the bundled JSON into an array of RegistryServer.
 function registryToArray(data: RegistryData): RegistryServer[] {
@@ -65,7 +77,7 @@ function groupByCategory(
 }
 
 // Filter servers by a search query against name, description, tags, and tools.
-function filterServers(
+function filterByQuery(
   servers: RegistryServer[],
   query: string,
 ): RegistryServer[] {
@@ -78,6 +90,68 @@ function filterServers(
       s.tags?.some((t) => t.toLowerCase().includes(q)) ||
       s.tools.some((t) => t.name.toLowerCase().includes(q)),
   );
+}
+
+// Apply structured filters to a server list.
+function applyFilters(
+  servers: RegistryServer[],
+  filters: ServerFilters,
+): RegistryServer[] {
+  return servers.filter((s) => {
+    if (filters.category && !s.categories?.includes(filters.category)) {
+      return false;
+    }
+    if (filters.official && !s.isOfficial) {
+      return false;
+    }
+    if (
+      filters.license &&
+      !s.license.toLowerCase().includes(filters.license.toLowerCase())
+    ) {
+      return false;
+    }
+    if (
+      filters.runtime &&
+      !Object.values(s.installations).some(
+        (inst) => inst.runtime === filters.runtime,
+      )
+    ) {
+      return false;
+    }
+    if (
+      filters.tags.length > 0 &&
+      !filters.tags.every((ft) =>
+        s.tags?.some((st) => st.toLowerCase().includes(ft.toLowerCase())),
+      )
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+// Extract unique values from all servers for filter dropdowns.
+function extractFilterOptions(servers: RegistryServer[]) {
+  const categories = new Set<string>();
+  const licenses = new Set<string>();
+  const runtimes = new Set<string>();
+  const tags = new Set<string>();
+
+  for (const s of servers) {
+    s.categories?.forEach((c) => categories.add(c));
+    if (s.license) licenses.add(s.license);
+    Object.values(s.installations).forEach((inst) =>
+      runtimes.add(inst.runtime),
+    );
+    s.tags?.forEach((t) => tags.add(t));
+  }
+
+  return {
+    categories: Array.from(categories).sort(),
+    licenses: Array.from(licenses).sort(),
+    runtimes: Array.from(runtimes).sort(),
+    tags: Array.from(tags).sort(),
+  };
 }
 
 // Generate correct mcpd TOML from registry data and form values.
@@ -156,6 +230,8 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   const [form] = Form.useForm();
   const [mode, setMode] = useState<"browse" | "custom">("browse");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<ServerFilters>(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedServer, setSelectedServer] = useState<RegistryServer | null>(
     null,
   );
@@ -169,19 +245,40 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   const [liveServers, setLiveServers] = useState<RegistryServer[]>([]);
   const [loadingLive, setLoadingLive] = useState(false);
 
-  // Merge bundled + live data (live wins on ID conflicts).
+  // Merge bundled + client-specific + live data (live wins on ID conflicts).
   const allServers = useMemo(() => {
     const bundled = registryToArray(bundledRegistry as RegistryData);
+    const client = registryToArray(clientServers as RegistryData);
     const merged = new Map<string, RegistryServer>();
     for (const s of bundled) merged.set(s.id, s);
+    for (const s of client) merged.set(s.id, s);
     for (const s of liveServers) merged.set(s.id, s);
     return Array.from(merged.values());
   }, [liveServers]);
 
-  const filteredServers = useMemo(
-    () => (searchQuery ? filterServers(allServers, searchQuery) : allServers),
-    [allServers, searchQuery],
+  // Extract unique values for filter dropdowns.
+  const filterOptions = useMemo(
+    () => extractFilterOptions(allServers),
+    [allServers],
   );
+
+  // Count active filters for the badge.
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.category) count++;
+    if (filters.official) count++;
+    if (filters.license) count++;
+    if (filters.runtime) count++;
+    count += filters.tags.length;
+    return count;
+  }, [filters]);
+
+  const filteredServers = useMemo(() => {
+    let result = allServers;
+    if (searchQuery) result = filterByQuery(result, searchQuery);
+    result = applyFilters(result, filters);
+    return result;
+  }, [allServers, searchQuery, filters]);
 
   const serversByCategory = useMemo(
     () => groupByCategory(filteredServers),
@@ -200,6 +297,8 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
       setSelectedTools([]);
       setArgValues({});
       setSearchQuery("");
+      setFilters(EMPTY_FILTERS);
+      setShowFilters(false);
       setTomlPreview("");
     }
   }, [visible, form]);
@@ -271,6 +370,14 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
 
   const updateArgValue = (key: string, value: string) => {
     setArgValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateFilter = (key: keyof ServerFilters, value: unknown) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
   };
 
   const handleAdd = async () => {
@@ -497,6 +604,11 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                   {rt}
                 </Tag>
               ))}
+              {server.license && (
+                <Tag color="purple" style={{ fontSize: 11 }}>
+                  {server.license}
+                </Tag>
+              )}
             </Space>
           </div>
         }
@@ -504,27 +616,153 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     </List.Item>
   );
 
+  const renderFilterBar = () => (
+    <div
+      style={{
+        padding: "12px 0",
+        borderBottom: "1px solid #f0f0f0",
+        marginBottom: 12,
+      }}
+    >
+      <Row gutter={[8, 8]}>
+        <Col span={6}>
+          <Select
+            placeholder="Category"
+            allowClear
+            style={{ width: "100%" }}
+            size="small"
+            value={filters.category}
+            onChange={(v) => updateFilter("category", v)}
+          >
+            {filterOptions.categories.map((c) => (
+              <Select.Option key={c} value={c}>
+                {c}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col span={5}>
+          <Select
+            placeholder="Runtime"
+            allowClear
+            style={{ width: "100%" }}
+            size="small"
+            value={filters.runtime}
+            onChange={(v) => updateFilter("runtime", v)}
+          >
+            {filterOptions.runtimes.map((r) => (
+              <Select.Option key={r} value={r}>
+                {r}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col span={5}>
+          <Select
+            placeholder="License"
+            allowClear
+            style={{ width: "100%" }}
+            size="small"
+            value={filters.license}
+            onChange={(v) => updateFilter("license", v)}
+          >
+            {filterOptions.licenses.map((l) => (
+              <Select.Option key={l} value={l}>
+                {l}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col span={5}>
+          <Select
+            placeholder="Tags"
+            mode="multiple"
+            allowClear
+            style={{ width: "100%" }}
+            size="small"
+            maxTagCount={1}
+            value={filters.tags}
+            onChange={(v) => updateFilter("tags", v)}
+          >
+            {filterOptions.tags.map((t) => (
+              <Select.Option key={t} value={t}>
+                {t}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col span={3}>
+          <Space size="small">
+            <Checkbox
+              checked={filters.official ?? false}
+              onChange={(e) =>
+                updateFilter("official", e.target.checked || undefined)
+              }
+            >
+              <Text style={{ fontSize: 12 }}>Official</Text>
+            </Checkbox>
+          </Space>
+        </Col>
+      </Row>
+      {activeFilterCount > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <Button
+            type="link"
+            size="small"
+            onClick={clearFilters}
+            style={{ padding: 0 }}
+          >
+            Clear all filters ({activeFilterCount} active)
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
   const renderBrowseMode = () => (
     <div>
-      <Space style={{ width: "100%", marginBottom: 16 }} direction="vertical">
-        <Input.Search
-          placeholder="Filter servers by name, category, tool, or tag..."
-          onChange={(e) => setSearchQuery(e.target.value)}
-          value={searchQuery}
-          allowClear
-        />
+      <Space style={{ width: "100%", marginBottom: 8 }} direction="vertical">
+        <Space style={{ width: "100%" }}>
+          <Input.Search
+            placeholder="Search servers by name, description, tool, or tag..."
+            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchQuery}
+            allowClear
+            style={{ flex: 1 }}
+          />
+          <Button
+            icon={<FilterOutlined />}
+            onClick={() => setShowFilters(!showFilters)}
+            type={activeFilterCount > 0 ? "primary" : "default"}
+            size="middle"
+          >
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </Button>
+        </Space>
+        {showFilters && renderFilterBar()}
         {loadingLive && (
           <Text type="secondary" style={{ fontSize: 12 }}>
             <LoadingOutlined /> Loading live registry from daemon...
           </Text>
         )}
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {filteredServers.length} server
+          {filteredServers.length !== 1 ? "s" : ""}
+          {searchQuery || activeFilterCount > 0 ? " matching" : " available"}
+        </Text>
       </Space>
 
       {filteredServers.length === 0 ? (
-        <Empty description={`No servers found matching "${searchQuery}"`} />
+        <Empty
+          description={
+            searchQuery || activeFilterCount > 0
+              ? "No servers match the current filters"
+              : "No servers available"
+          }
+        />
       ) : (
         <div style={{ maxHeight: 400, overflow: "auto" }}>
-          {searchQuery ? (
+          {searchQuery || activeFilterCount > 0 ? (
             <List
               dataSource={filteredServers}
               renderItem={renderServerListItem}
