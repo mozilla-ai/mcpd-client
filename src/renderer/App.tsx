@@ -15,7 +15,7 @@ import ToolExplorer from "./components/ToolExplorer";
 import ConfigEditor from "./components/ConfigEditor";
 import LogViewer from "./components/LogViewer";
 import QuickSetup from "./components/QuickSetup";
-import { DaemonStatus } from "@shared/types";
+import { DaemonStatus, RegistryServer } from "@shared/types";
 
 const { Header, Sider, Content } = Layout;
 
@@ -29,7 +29,7 @@ declare global {
       listServers: () => Promise<any[]>;
       addServer: (server: any) => Promise<void>;
       removeServer: (name: string) => Promise<void>;
-      searchServers: (query: string) => Promise<any[]>;
+      searchServers: (query: string) => Promise<RegistryServer[]>;
       getServerTools: (name: string) => Promise<any[]>;
       callTool: (server: string, tool: string, args: any) => Promise<any>;
       loadConfig: () => Promise<any>;

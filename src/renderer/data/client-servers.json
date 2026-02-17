@@ -1,0 +1,238 @@
+{
+  "github": {
+    "id": "github",
+    "name": "github",
+    "displayName": "GitHub",
+    "description": "Interact with GitHub repositories, issues, pull requests, and more",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+    "license": "MIT",
+    "isOfficial": true,
+    "categories": ["Development"],
+    "tags": ["github", "git", "repositories", "issues", "pull-requests"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-github",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {
+      "GITHUB_TOKEN": {
+        "name": "GITHUB_TOKEN",
+        "description": "GitHub personal access token",
+        "type": "environment",
+        "required": true,
+        "example": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    "tools": [
+      {
+        "name": "create_repository",
+        "description": "Create a new GitHub repository"
+      },
+      {
+        "name": "list_repositories",
+        "description": "List repositories for a user or organization"
+      },
+      { "name": "create_issue", "description": "Create a new issue" },
+      { "name": "list_issues", "description": "List issues in a repository" },
+      { "name": "update_issue", "description": "Update an existing issue" },
+      {
+        "name": "add_issue_comment",
+        "description": "Add a comment to an issue"
+      },
+      {
+        "name": "create_pull_request",
+        "description": "Create a new pull request"
+      },
+      { "name": "list_pull_requests", "description": "List pull requests" }
+    ],
+    "transports": ["stdio"]
+  },
+  "postgresql": {
+    "id": "postgresql",
+    "name": "postgresql",
+    "displayName": "PostgreSQL",
+    "description": "Connect to and query PostgreSQL databases",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+    "license": "MIT",
+    "categories": ["Databases"],
+    "tags": ["postgresql", "postgres", "sql", "database"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-postgres",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {
+      "DATABASE_URL": {
+        "name": "DATABASE_URL",
+        "description": "PostgreSQL connection string",
+        "type": "environment",
+        "required": true,
+        "example": "postgresql://user:pass@localhost:5432/dbname"
+      }
+    },
+    "tools": [
+      { "name": "query", "description": "Execute SQL queries" },
+      { "name": "list_tables", "description": "List database tables" },
+      { "name": "describe_table", "description": "Get table structure" }
+    ],
+    "transports": ["stdio"]
+  },
+  "brave-search": {
+    "id": "brave-search",
+    "name": "brave-search",
+    "displayName": "Brave Search",
+    "description": "Search the web using Brave Search API",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+    "license": "MIT",
+    "categories": ["Web Services"],
+    "tags": ["brave", "search", "web"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-brave-search",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {
+      "BRAVE_API_KEY": {
+        "name": "BRAVE_API_KEY",
+        "description": "Brave Search API key",
+        "type": "environment",
+        "required": true
+      }
+    },
+    "tools": [
+      {
+        "name": "brave_web_search",
+        "description": "Search the web with Brave"
+      },
+      {
+        "name": "brave_local_search",
+        "description": "Search for local businesses"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "google-drive": {
+    "id": "google-drive",
+    "name": "google-drive",
+    "displayName": "Google Drive",
+    "description": "Access and manage files in Google Drive",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-drive",
+    "license": "MIT",
+    "categories": ["Cloud Storage"],
+    "tags": ["google", "drive", "cloud", "storage", "files"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-google-drive",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {
+      "GOOGLE_DRIVE_CLIENT_ID": {
+        "name": "GOOGLE_DRIVE_CLIENT_ID",
+        "description": "Google OAuth client ID",
+        "type": "environment",
+        "required": true
+      },
+      "GOOGLE_DRIVE_CLIENT_SECRET": {
+        "name": "GOOGLE_DRIVE_CLIENT_SECRET",
+        "description": "Google OAuth client secret",
+        "type": "environment",
+        "required": true
+      },
+      "GOOGLE_DRIVE_REFRESH_TOKEN": {
+        "name": "GOOGLE_DRIVE_REFRESH_TOKEN",
+        "description": "Google OAuth refresh token",
+        "type": "environment",
+        "required": true
+      }
+    },
+    "tools": [
+      { "name": "list_files", "description": "List files in Drive" },
+      { "name": "read_file", "description": "Read file contents" },
+      { "name": "create_file", "description": "Create a new file" },
+      { "name": "update_file", "description": "Update file contents" },
+      { "name": "move_file", "description": "Move file to different folder" },
+      { "name": "search_files", "description": "Search for files" }
+    ],
+    "transports": ["stdio"]
+  },
+  "obsidian": {
+    "id": "obsidian",
+    "name": "obsidian",
+    "displayName": "Obsidian",
+    "description": "Interact with Obsidian vaults and notes",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/obsidian",
+    "license": "MIT",
+    "categories": ["Productivity"],
+    "tags": ["obsidian", "notes", "vault", "markdown"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-obsidian",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {
+      "--vault-path": {
+        "name": "--vault-path",
+        "description": "Path to Obsidian vault",
+        "type": "argument",
+        "required": true,
+        "example": "~/Documents/ObsidianVault"
+      }
+    },
+    "tools": [
+      { "name": "read_note", "description": "Read a note from vault" },
+      { "name": "create_note", "description": "Create a new note" },
+      { "name": "update_note", "description": "Update an existing note" },
+      { "name": "list_notes", "description": "List notes in vault" },
+      { "name": "search_notes", "description": "Search notes by content" }
+    ],
+    "transports": ["stdio"]
+  },
+  "puppeteer": {
+    "id": "puppeteer",
+    "name": "puppeteer",
+    "displayName": "Puppeteer",
+    "description": "Control headless Chrome for web scraping and automation",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+    "license": "MIT",
+    "categories": ["Web Services"],
+    "tags": ["puppeteer", "chrome", "browser", "scraping", "automation"],
+    "installations": {
+      "npx": {
+        "runtime": "npx",
+        "package": "@modelcontextprotocol/server-puppeteer",
+        "version": "latest",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "arguments": {},
+    "tools": [
+      { "name": "navigate", "description": "Navigate to a URL" },
+      { "name": "screenshot", "description": "Take a screenshot" },
+      { "name": "click", "description": "Click an element" },
+      { "name": "type", "description": "Type text into an input" },
+      { "name": "evaluate", "description": "Execute JavaScript in the page" }
+    ],
+    "transports": ["stdio"]
+  }
+}
