@@ -27,8 +27,8 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Typecheck root
-        run: npx tsc --noEmit
+      - name: Lint and typecheck
+        run: npm run lint
 
       - name: Build root
         run: npm run build

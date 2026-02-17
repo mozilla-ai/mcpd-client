@@ -13,7 +13,13 @@
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux",
+    "lint": "npm run format:check && eslint . && npm run typecheck",
+    "lint:fix": "npm run format && eslint . --fix && npm run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,css}\"",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint:fix && npm run build"
   },
   "repository": {
     "type": "git",
@@ -61,6 +67,7 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
@@ -68,10 +75,15 @@
     "css-loader": "^7.1.2",
     "electron": "^37.3.0",
     "electron-builder": "^26.7.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.3.0",
     "html-webpack-plugin": "^5.6.4",
+    "prettier": "^3.8.1",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.2",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.56.0",
     "webpack": "^5.105.0",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.2"

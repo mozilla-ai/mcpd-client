@@ -7,6 +7,7 @@ mcpd exposes an HTTP API directly on port 8090. There is no need for a separate 
 ### Local Access
 
 The mcpd daemon provides a built-in HTTP API:
+
 ```bash
 # List servers
 curl http://localhost:8090/api/v1/servers
@@ -21,6 +22,7 @@ curl -X POST http://localhost:8090/api/v1/servers/filesystem/tools/read_file/cal
 ```
 
 Or use the JavaScript SDK:
+
 ```bash
 npm install @mozilla-ai/mcpd
 ```
@@ -30,18 +32,20 @@ import { McpdClient } from "@mozilla-ai/mcpd";
 
 const client = new McpdClient({ apiEndpoint: "http://localhost:8090" });
 const result = await client.servers.filesystem.callTool("read_file", {
-  path: "/tmp/test.txt"
+  path: "/tmp/test.txt",
 });
 ```
 
 ### IDE Integrations (STDIO)
 
 For Claude Desktop, Cursor, and other IDEs that require STDIO-based MCP servers, use mcpd-proxy:
+
 ```bash
 npx @mozilla-ai/mcpd-proxy
 ```
 
 Or use the setup CLI:
+
 ```bash
 mcpd-setup filesystem --client claude
 mcpd-setup filesystem --client cursor
@@ -54,16 +58,19 @@ When you need to connect external services to your local mcpd instance, you can 
 ### Option 1: Cloudflare Tunnel (Recommended - Free, No Account)
 
 **One command setup:**
+
 ```bash
 mcpd-setup filesystem --client tunnel
 ```
 
 This will:
+
 - Automatically install cloudflared if not present
 - Create a public tunnel to mcpd on port 8090
 - Display the public URL
 
 Or manually:
+
 ```bash
 cloudflared tunnel --url http://localhost:8090
 ```
@@ -87,23 +94,26 @@ npx localtunnel --port 8090
 ## Example: Connecting External App to Local mcpd
 
 ```javascript
-const MCPD_URL = process.env.MCPD_URL || 'https://your-tunnel.trycloudflare.com';
+const MCPD_URL =
+  process.env.MCPD_URL || "https://your-tunnel.trycloudflare.com";
 
 async function callMCPTool(server, toolName, args) {
   const response = await fetch(
     `${MCPD_URL}/api/v1/servers/${server}/tools/${toolName}/call`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ arguments: args })
-    }
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ arguments: args }),
+    },
   );
 
   return response.json();
 }
 
 // Example usage.
-const result = await callMCPTool('filesystem', 'read_file', { path: '/tmp/data.txt' });
+const result = await callMCPTool("filesystem", "read_file", {
+  path: "/tmp/data.txt",
+});
 ```
 
 ## Security Considerations

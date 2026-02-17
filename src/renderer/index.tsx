@@ -1,11 +1,11 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { ConfigProvider, theme } from 'antd';
-import App from './App';
-import './styles/global.css';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { ConfigProvider, theme } from "antd";
+import App from "./App";
+import "./styles/global.css";
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
+  document.getElementById("root") as HTMLElement,
 );
 
 root.render(
@@ -14,12 +14,12 @@ root.render(
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: '#1890ff',
+          colorPrimary: "#1890ff",
           borderRadius: 6,
         },
       }}
     >
       <App />
     </ConfigProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

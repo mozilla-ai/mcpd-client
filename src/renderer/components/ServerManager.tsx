@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Tag, Space, message, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import { MCPServer } from '@shared/types';
-import AddServerModal from './AddServerModal';
+import React, { useState, useEffect } from "react";
+import { Card, Table, Button, Tag, Space, message, Popconfirm } from "antd";
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
+import { MCPServer } from "@shared/types";
+import AddServerModal from "./AddServerModal";
 
 const ServerManager: React.FC = () => {
   const [servers, setServers] = useState<MCPServer[]>([]);
@@ -17,7 +21,7 @@ const ServerManager: React.FC = () => {
     setLoading(true);
     try {
       const serverList = await window.electronAPI.listServers();
-      
+
       // Fetch tools for each server
       const serversWithTools = await Promise.all(
         serverList.map(async (server: any) => {
@@ -34,18 +38,17 @@ const ServerManager: React.FC = () => {
               tools: [],
             };
           }
-        })
+        }),
       );
-      
+
       setServers(serversWithTools);
     } catch (error) {
-      console.error('Failed to load servers:', error);
-      message.error('Failed to load servers');
+      console.error("Failed to load servers:", error);
+      message.error("Failed to load servers");
     } finally {
       setLoading(false);
     }
   };
-
 
   const handleRemoveServer = async (name: string) => {
     try {
@@ -53,51 +56,61 @@ const ServerManager: React.FC = () => {
       message.success(`Server ${name} removed successfully`);
       loadServers();
     } catch (error) {
-      console.error('Failed to remove server:', error);
-      message.error('Failed to remove server');
+      console.error("Failed to remove server:", error);
+      message.error("Failed to remove server");
     }
   };
 
   const columns = [
     {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
       render: (text: string) => <strong>{text}</strong>,
     },
     {
-      title: 'Package',
-      dataIndex: 'package',
-      key: 'package',
-      render: (text: string) => text || 'N/A',
+      title: "Package",
+      dataIndex: "package",
+      key: "package",
+      render: (text: string) => text || "N/A",
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
       render: (status: string) => {
-        const color = status === 'running' ? 'green' : status === 'stopped' ? 'red' : 'orange';
+        const color =
+          status === "running"
+            ? "green"
+            : status === "stopped"
+              ? "red"
+              : "orange";
         return <Tag color={color}>{status.toUpperCase()}</Tag>;
       },
     },
     {
-      title: 'Health',
-      dataIndex: 'health',
-      key: 'health',
+      title: "Health",
+      dataIndex: "health",
+      key: "health",
       render: (health: string) => {
-        const color = health === 'healthy' ? 'green' : health === 'unhealthy' ? 'red' : 'default';
-        return <Tag color={color}>{health?.toUpperCase() || 'UNKNOWN'}</Tag>;
+        const color =
+          health === "healthy"
+            ? "green"
+            : health === "unhealthy"
+              ? "red"
+              : "default";
+        return <Tag color={color}>{health?.toUpperCase() || "UNKNOWN"}</Tag>;
       },
     },
     {
-      title: 'Tools',
-      dataIndex: 'tools',
-      key: 'tools',
+      title: "Tools",
+      dataIndex: "tools",
+      key: "tools",
       render: (tools: string[]) => tools?.length || 0,
     },
     {
-      title: 'Actions',
-      key: 'actions',
+      title: "Actions",
+      key: "actions",
       render: (_: any, record: MCPServer) => (
         <Space>
           <Popconfirm
@@ -116,35 +129,39 @@ const ServerManager: React.FC = () => {
   return (
     <>
       <Card
-      title="MCP Servers"
-      extra={
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={loadServers}>
-            Refresh
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalVisible(true)}>
-            Add Server
-          </Button>
-        </Space>
-      }
-    >
-      <Table
-        columns={columns}
-        dataSource={servers}
-        rowKey="name"
-        loading={loading}
-        pagination={false}
-      />
-    </Card>
+        title="MCP Servers"
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={loadServers}>
+              Refresh
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setAddModalVisible(true)}
+            >
+              Add Server
+            </Button>
+          </Space>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={servers}
+          rowKey="name"
+          loading={loading}
+          pagination={false}
+        />
+      </Card>
 
-    <AddServerModal
-      visible={addModalVisible}
-      onClose={() => setAddModalVisible(false)}
-      onSuccess={() => {
-        setAddModalVisible(false);
-        loadServers();
-      }}
-    />
+      <AddServerModal
+        visible={addModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onSuccess={() => {
+          setAddModalVisible(false);
+          loadServers();
+        }}
+      />
     </>
   );
 };

@@ -2,8 +2,8 @@ export interface MCPServer {
   name: string;
   package: string;
   tools: string[];
-  status: 'running' | 'stopped' | 'error' | 'initializing';
-  health?: 'healthy' | 'unhealthy' | 'unknown';
+  status: "running" | "stopped" | "error" | "initializing";
+  health?: "healthy" | "unhealthy" | "unknown";
 }
 
 export interface MCPTool {
@@ -31,29 +31,29 @@ export interface ConfigEntry {
 
 export interface IpcChannels {
   // Daemon management
-  'daemon:start': () => Promise<DaemonStatus>;
-  'daemon:stop': () => Promise<void>;
-  'daemon:status': () => Promise<DaemonStatus>;
-  'daemon:logs': () => Promise<string[]>;
-  
+  "daemon:start": () => Promise<DaemonStatus>;
+  "daemon:stop": () => Promise<void>;
+  "daemon:status": () => Promise<DaemonStatus>;
+  "daemon:logs": () => Promise<string[]>;
+
   // Server management
-  'servers:list': () => Promise<MCPServer[]>;
-  'servers:add': (name: string, packageName: string) => Promise<void>;
-  'servers:remove': (name: string) => Promise<void>;
-  'servers:tools': (name: string) => Promise<MCPTool[]>;
-  
+  "servers:list": () => Promise<MCPServer[]>;
+  "servers:add": (name: string, packageName: string) => Promise<void>;
+  "servers:remove": (name: string) => Promise<void>;
+  "servers:tools": (name: string) => Promise<MCPTool[]>;
+
   // Tool execution
-  'tool:call': (server: string, tool: string, args: any) => Promise<any>;
-  
+  "tool:call": (server: string, tool: string, args: any) => Promise<any>;
+
   // Configuration
-  'config:load': () => Promise<ConfigEntry[]>;
-  'config:save': (config: ConfigEntry[]) => Promise<void>;
-  'config:export': () => Promise<string>;
+  "config:load": () => Promise<ConfigEntry[]>;
+  "config:save": (config: ConfigEntry[]) => Promise<void>;
+  "config:export": () => Promise<string>;
 }
 
 export interface LogEntry {
   timestamp: string;
-  level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+  level: "DEBUG" | "INFO" | "WARN" | "ERROR";
   message: string;
   source?: string;
 }
