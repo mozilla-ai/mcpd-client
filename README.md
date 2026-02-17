@@ -1,8 +1,8 @@
 # mcpd Client
 
-A comprehensive ecosystem for managing MCP (Model Context Protocol) servers with Mozilla's [mcpd](https://github.com/mozilla-ai/mcpd), featuring an Electron desktop app, STDIO bridge for Claude Desktop, HTTP gateway for universal access, and a CLI tool for quick client setup.
+A desktop app and CLI for managing MCP (Model Context Protocol) servers with Mozilla's [mcpd](https://github.com/mozilla-ai/mcpd). Integrates with Claude Desktop, Cursor, and other IDEs via [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy).
 
-## ⚠️ CRITICAL SECURITY NOTICE
+## CRITICAL SECURITY NOTICE
 
 **Mozilla has NEVER published any packages from this project to npm.**
 
@@ -15,21 +15,13 @@ If any other packages claiming to be from this project exist on npm, they should
 
 **Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
 
-All components in this repository should **ONLY** be installed from source. Always use the provided `./install-global.sh` script or manual installation from this repository. Never use `npm install` or `npx` with these unscoped package names.
-
-## 🎯 Core Components
+## Core Components
 
 ### 1. **mcpd Client** (Electron App)
 Visual desktop application for managing MCP servers with dashboard, configuration editor, and real-time monitoring.
 
-### 2. **mcpd Bridge Server** (STDIO)
-Native MCP protocol bridge for Claude Desktop integration with flexible unified/individual server modes.
-
-### 3. **mcpd HTTP Gateway** (REST/WebSocket)
-Universal HTTP/HTTPS gateway exposing MCP servers via REST API and WebSocket for web apps, Claude Code, Cursor, and any HTTP client.
-
-### 4. **mcpd Setup CLI**
-Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, HTTP, Tunnel).
+### 2. **mcpd Setup CLI**
+Command-line tool for quick setup of MCP servers with various clients (Claude, Cursor, Windsurf, HTTP).
 
 ## Features
 
@@ -40,10 +32,10 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
 - **System Tray Integration**: Run in background with quick access controls
 - **Dashboard**: Overview of system status, active servers, and available tools
 - **Multiple Access Methods**:
-  - STDIO Bridge for Claude Desktop
-  - HTTP Gateway for web/API access
+  - STDIO via [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) for IDE integrations (Claude Desktop, Cursor, etc.)
+  - Direct mcpd HTTP API on port 8090
+  - [`@mozilla-ai/mcpd`](https://github.com/mozilla-ai/mcpd-sdk-javascript) JavaScript/TypeScript SDK
   - Cloudflare Tunnels for external access (no account needed)
-  - Direct mcpd API access
 - **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
 - **Export Configurations**: Generate configs for various platforms and tools
 
@@ -67,7 +59,7 @@ npm install
 # Build the application
 npm run build
 
-# Install CLI tools globally (mcpd-bridge, mcpd-setup, etc.)
+# Install CLI tools globally (mcpd-setup)
 ./install-global.sh
 
 # Start the application
@@ -96,9 +88,23 @@ npm run dist:linux  # Linux
 
 The application consists of:
 
-- **Main Process**: Manages the mcpd daemon, handles IPC, and system tray
+- **Main Process**: Manages the mcpd daemon lifecycle, handles IPC, and system tray
 - **Renderer Process**: React-based UI with Ant Design components
-- **mcpd Integration**: Communicates with mcpd's HTTP API on port 8090
+- **mcpd SDK**: Communicates with mcpd via the [`@mozilla-ai/mcpd`](https://github.com/mozilla-ai/mcpd-sdk-javascript) JavaScript SDK
+- **IDE Integrations**: Uses [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) for STDIO-based connections
+
+```
+                    mcpd Daemon (port 8090)
+                           |
+         +-----------------+-----------------+
+         |                 |                 |
+    Electron App     mcpd-proxy         HTTP API
+    (Management)   (IDE STDIO bridge)   (Direct access)
+         |                 |                 |
+    Dashboard         Claude Desktop    REST clients
+    Config Editor     Cursor            SDK consumers
+    Tool Explorer     VS Code
+```
 
 ## Tech Stack
 
@@ -108,6 +114,7 @@ The application consists of:
 - **Ant Design**: UI component library
 - **Monaco Editor**: Code editing for configurations
 - **xterm.js**: Terminal emulator for logs
+- **@mozilla-ai/mcpd**: JavaScript SDK for mcpd API
 
 ## Usage
 
@@ -115,7 +122,7 @@ The application consists of:
 
 1. **Start the Daemon**: Click the power button in the header or use the system tray menu
 2. **Add Servers**: Navigate to the Servers tab and click "Add Server"
-3. **Quick Connect**: Use the Connect tab for one-click setup with Claude, Cursor, or HTTP gateway
+3. **Quick Connect**: Use the Connect tab for one-click setup with Claude, Cursor, or HTTP API
 4. **Explore Tools**: Use the Tools tab to browse and test available MCP tools
 5. **Edit Configuration**: Modify `.mcpd.toml` directly in the Configuration tab
 6. **Monitor Logs**: View real-time logs with filtering in the Logs tab
@@ -124,151 +131,90 @@ The application consists of:
 
 The Connect tab provides the easiest way to integrate your MCP servers with various tools.
 
-#### Option 1: Use the Buttons in the App
-For each configured server, just click a button:
-- **Connect to Claude Desktop** - Automatically configures claude_desktop_config.json
-- **Start HTTP Gateway** - Launches HTTP server and shows the API endpoint
-- **Connect to Cursor** - Currently use the CLI tool (see Option 2)
+For each configured server, click a button:
+- **Connect to Claude Desktop** - Configures `claude_desktop_config.json` with mcpd-proxy
+- **Connect to Cursor** - Configures `~/.cursor/mcp.json` with mcpd-proxy
+- **HTTP API Info** - Shows the mcpd HTTP API endpoint
 
-#### Option 2: Use the CLI Tool
+### CLI Tool
+
 After running `./install-global.sh`, you can use these commands from anywhere:
 ```bash
 # List available servers
 mcpd-setup list
 
-# Setup for Claude Desktop
+# Setup for Claude Desktop (configures mcpd-proxy)
 mcpd-setup filesystem --client claude
 
-# Start HTTP Gateway (local access)
+# Setup for Cursor (configures mcpd-proxy)
+mcpd-setup filesystem --client cursor
+
+# Setup for Windsurf
+mcpd-setup filesystem --client windsurf
+
+# Show HTTP API info
 mcpd-setup filesystem --client http
 
-# Create public tunnel (for external services like Railway)
+# Create public tunnel (for external services)
 mcpd-setup filesystem --client tunnel
-
-# Setup for Cursor (with automatic tunnel)
-mcpd-setup filesystem --client cursor
 ```
 
-#### What Each Command Does
+### Manual Integration
 
-**Claude Desktop Integration:**
-- Automatically configures `claude_desktop_config.json`
-- Uses STDIO bridge for native MCP protocol support
-- Creates individual server entries for clean organization
-- Supports both unified (all servers) and per-server modes
+#### Claude Desktop / Cursor (STDIO via mcpd-proxy)
 
-**Cursor Integration:**
-- Automatically creates a Cloudflare tunnel to bypass localhost restrictions
-- Configures `~/.cursor/mcp.json` with the tunnel URL
-- Starts HTTP gateway for MCP protocol translation
-- Keeps the tunnel alive (terminal must stay open)
-- Provides real-time access to MCP tools in Cursor
-
-**Windsurf Integration:**
-- Sets up Windsurf with MCP server access
-- Optimized configuration for development workflows
-
-**HTTP Gateway:**
-- Starts HTTP server at `http://localhost:3001/partner/mcpd/{server}/mcp`
-- Provides REST API access for web applications
-- Compatible with Claude Code and other HTTP clients
-- Automatic server discovery and routing
-- CORS enabled for web app integration
-
-**Public Tunnel (Cloudflare):**
-- Creates a public URL for your MCP server
-- No account or authentication required
-- Perfect for Railway apps or external services
-- Automatic cloudflared installation
-- Example: `https://random-name.trycloudflare.com/partner/mcpd/{server}/mcp`
-
-#### Example Workflows
-
-**Setting up Claude Desktop:**
-1. Go to Connect tab
-2. Click "Copy" next to Claude command for your server
-3. Paste and run in terminal
-4. Restart Claude Desktop
-5. Your MCP server is now available in Claude!
-
-**Web Development with HTTP Gateway:**
-1. Use the HTTP setup command
-2. Access your server at `http://localhost:3001/partner/mcpd/filesystem/mcp`
-3. Make MCP calls via HTTP POST requests
-4. Perfect for integrating with web apps or API clients
-
-### Advanced Integration Options
-
-For manual setup or custom configurations, you can also integrate directly:
-
-#### 1. Claude Desktop (Manual STDIO Bridge Setup)
-
-The Connect tab automates this, but you can also manually add to `claude_desktop_config.json`:
+Add to `claude_desktop_config.json` or `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "mcpd-filesystem": {
-      "command": "node",
-      "args": ["/path/to/mcpd-bridge-server/dist/index.js"],
-      "env": { 
-        "MCPD_SERVER": "filesystem",
-        "MCPD_URL": "http://localhost:8090" 
+    "mcpd": {
+      "command": "npx",
+      "args": ["@mozilla-ai/mcpd-proxy"],
+      "env": {
+        "MCPD_ADDR": "http://localhost:8090"
       }
     }
   }
 }
 ```
 
-#### 2. HTTP API Access (Manual Gateway)
+#### JavaScript/TypeScript SDK
 
-Start the HTTP gateway manually:
 ```bash
-cd mcpd-http-gateway
-npm start
+npm install @mozilla-ai/mcpd
 ```
 
-Then access via REST API:
 ```javascript
-const response = await fetch('http://localhost:3001/partner/mcpd/filesystem/mcp', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "tools/call",
-    params: {
-      name: "read_file",
-      arguments: { path: "/tmp/test.txt" }
-    }
-  })
+import { McpdClient } from "@mozilla-ai/mcpd";
+
+const client = new McpdClient({ apiEndpoint: "http://localhost:8090" });
+
+// List servers.
+const servers = await client.listServers();
+
+// Get tools for a server.
+const tools = await client.servers.filesystem.getTools();
+
+// Call a tool.
+const result = await client.servers.filesystem.callTool("read_file", {
+  path: "/tmp/test.txt"
 });
 ```
 
-#### 3. Direct mcpd API
+#### Direct mcpd HTTP API
 
-Connect directly to mcpd's [HTTP API](http://localhost:8090/docs):
-```javascript
-const response = await fetch('http://localhost:8090/api/v1/servers/filesystem/tools/read_file', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ path: "/tmp/test.txt" })
-});
-```
+```bash
+# List servers
+curl http://localhost:8090/api/v1/servers
 
-## Architecture Overview
+# Get server tools
+curl http://localhost:8090/api/v1/servers/filesystem/tools
 
-```
-                    mcpd Daemon
-                        ↓
-    ┌───────────────────┼───────────────────┐
-    ↓                   ↓                   ↓
-Electron App      STDIO Bridge        HTTP Gateway
-(Management)    (Claude Desktop)    (Web/API Access)
-    ↓                   ↓                   ↓
-Dashboard          MCP Protocol         REST API
-Config Editor      Namespacing         WebSocket
-Tool Explorer      Dual Modes          Authentication
+# Call a tool
+curl -X POST http://localhost:8090/api/v1/servers/filesystem/tools/read_file/call \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"path": "/tmp/test.txt"}}'
 ```
 
 ## License

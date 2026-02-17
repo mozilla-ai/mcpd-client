@@ -158,7 +158,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                 <Card>
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <Text type="secondary">
-                      For Claude Desktop, use the STDIO bridge:
+                      For Claude Desktop, configure mcpd-proxy:
                     </Text>
                     <Input.TextArea
                       value={`mcpd-setup ${selectedServer} --client claude`}
@@ -168,7 +168,7 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                     />
                     <Alert
                       message="Note"
-                      description="Claude Desktop uses a different protocol. This command will configure the STDIO bridge."
+                      description="Claude Desktop uses STDIO. This command will configure mcpd-proxy as the STDIO bridge."
                       type="info"
                       showIcon
                     />
@@ -215,29 +215,29 @@ const SimpleExportModal: React.FC<SimpleExportModalProps> = ({ visible, onClose 
                 <Card>
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <Text type="secondary">
-                      For custom integrations, run this setup command:
+                      Use the mcpd HTTP API directly:
+                    </Text>
+                    <div style={{
+                      background: 'rgba(0,0,0,0.05)',
+                      padding: 8,
+                      borderRadius: 4,
+                      marginTop: 8
+                    }}>
+                      <code style={{ fontSize: 12 }}>
+                        http://localhost:8090/api/v1/servers/{selectedServer}/tools
+                      </code>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12, marginTop: 8 }}>
+                      Or use the JavaScript SDK:
                     </Text>
                     <Input.TextArea
-                      value={`mcpd-setup ${selectedServer} --client http`}
+                      value={`npm install @mozilla-ai/mcpd`}
                       readOnly
                       autoSize
                       style={{ fontFamily: 'monospace', fontSize: 14 }}
                     />
                     <Text type="secondary" style={{ fontSize: 12, marginTop: 8 }}>
-                      This will start the HTTP gateway and provide you with:
-                    </Text>
-                    <div style={{ 
-                      background: 'rgba(0,0,0,0.05)', 
-                      padding: 8, 
-                      borderRadius: 4,
-                      marginTop: 8 
-                    }}>
-                      <code style={{ fontSize: 12 }}>
-                        http://localhost:3001/partner/mcpd/{selectedServer}/mcp
-                      </code>
-                    </div>
-                    <Text type="secondary" style={{ fontSize: 12, marginTop: 8 }}>
-                      Use this URL in your application's HTTP client.
+                      For STDIO-based IDE connections, use mcpd-proxy: npx @mozilla-ai/mcpd-proxy
                     </Text>
                   </Space>
                 </Card>

@@ -1,12 +1,6 @@
 # mcpd Setup - Quick MCP Server Installation
 
-A simple CLI tool that mimics Composio's approach for setting up MCP servers with Cursor, Claude Desktop, and other tools.
-
-## ⚠️ Security Notice
-
-**DO NOT** install `@mcpd/setup` from npm. A package with this name exists on npm, but Mozilla has never published this package. It should be treated as malicious. This package is part of the mcpd-client monorepo and should only be installed from source.
-
-**Please be aware that Mozilla.ai will ONLY ever publish packages under the `@mozilla-ai/` namespace.**
+A simple CLI tool for setting up MCP servers with Cursor, Claude Desktop, and other IDEs. Configures [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) as the STDIO bridge.
 
 ## Installation
 
@@ -39,7 +33,7 @@ This shows all your mcpd servers and their available tools.
 
 ### 2. Set Up a Server
 
-Just like Composio, one command sets everything up:
+One command sets everything up:
 
 #### For Cursor
 ```bash
@@ -61,9 +55,8 @@ After running the command, restart the application to start using the MCP server
 ## How It Works
 
 1. **Checks Prerequisites**: Ensures mcpd is running and the server exists
-2. **Starts HTTP Gateway**: Automatically starts the MCP-over-HTTP gateway if needed
-3. **Configures the Client**: Updates the client's configuration file
-4. **Ready to Use**: Just restart the client application
+2. **Configures mcpd-proxy**: Sets up `npx @mozilla-ai/mcpd-proxy` as the STDIO bridge in the client's config
+3. **Ready to Use**: Just restart the client application
 
 ## Examples
 
@@ -86,37 +79,20 @@ mcpd-setup memory --client cursor
 
 ## Supported Clients
 
-- **Cursor** - Full HTTP endpoint support (when available)
-- **Claude Desktop** - Via STDIO bridge
-- **Windsurf** - HTTP endpoint support (check their docs)
-
-## The Composio Approach
-
-This tool mimics Composio's excellent UX:
-
-1. **One Command**: Single command to set up each server
-2. **Per-Server**: Focus on individual servers, not complex configurations
-3. **Automatic**: No manual JSON editing or configuration
-4. **Simple**: Just works™
-
-## Comparison with Composio
-
-| Feature | Composio | mcpd Setup |
-|---------|----------|------------|
-| Setup Command | ✅ `npx @composio/mcp@latest setup` | ✅ `mcpd-setup` |
-| Per-Server Setup | ✅ Yes | ✅ Yes |
-| Auto Configuration | ✅ Yes | ✅ Yes |
-| Self-Hosted | ❌ Cloud | ✅ Local |
-| Custom Servers | ❌ Limited | ✅ Any mcpd server |
+- **Cursor** - Via mcpd-proxy STDIO bridge
+- **Claude Desktop** - Via mcpd-proxy STDIO bridge
+- **Windsurf** - Via mcpd-proxy STDIO bridge
+- **HTTP** - Direct access to mcpd HTTP API (port 8090)
+- **Tunnel** - Cloudflare Tunnel for external access
 
 ## Configuration Locations
 
 The tool automatically updates the right configuration files:
 
 **Cursor**:
-- macOS: `~/.cursor/mcp/config.json`
-- Windows: `%APPDATA%\Cursor\mcp\config.json`
-- Linux: `~/.config/cursor/mcp/config.json`
+- macOS: `~/.cursor/mcp.json`
+- Windows: `%APPDATA%\Cursor\mcp.json`
+- Linux: `~/.config/cursor/mcp.json`
 
 **Claude Desktop**:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -130,7 +106,7 @@ Start mcpd first:
 ```bash
 mcpd daemon
 ```
-Or use the mcpd Client desktop app
+Or use the mcpd Client desktop app.
 
 ### "Server not found"
 List available servers:
@@ -140,9 +116,9 @@ mcpd-setup list
 
 ### Client doesn't see the server
 1. Make sure you restarted the client application
-2. Check that the HTTP gateway is running: `curl http://localhost:3001/health`
+2. Check that mcpd is running: `curl http://localhost:8090/api/v1/servers`
 3. Verify the configuration file was updated correctly
 
 ## License
 
-MIT
+Apache-2.0

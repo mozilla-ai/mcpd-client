@@ -19,8 +19,6 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          - mcpd-bridge-server
-          - mcpd-http-gateway
           - mcpd-setup
     steps:
       - name: Checkout

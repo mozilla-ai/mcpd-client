@@ -26,11 +26,18 @@ body {
 
 .ant-layout-sider {
   background: #1f1f1f !important;
+  padding-top: 38px;
 }
 
 .ant-layout-header {
   background: #1f1f1f !important;
   border-bottom: 1px solid #303030;
+  -webkit-app-region: drag;
+}
+
+/* Prevent buttons/controls inside the header from being swallowed by the drag region. */
+.ant-layout-header * {
+  -webkit-app-region: no-drag;
 }
 
 .ant-layout-content {

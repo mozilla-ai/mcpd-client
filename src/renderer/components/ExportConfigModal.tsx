@@ -11,7 +11,6 @@ import {
   Divider,
   Radio,
   Input,
-  Select,
   Checkbox,
 } from 'antd';
 import {
@@ -21,7 +20,6 @@ import {
   DesktopOutlined,
   ApiOutlined,
   CloudServerOutlined,
-  GlobalOutlined,
 } from '@ant-design/icons';
 import MonacoEditor from '@monaco-editor/react';
 
@@ -36,10 +34,10 @@ interface ExportConfigModalProps {
 const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose }) => {
   const [activeTab, setActiveTab] = useState('claude-desktop');
   const [configContent, setConfigContent] = useState('');
-  const [bridgeMode, setBridgeMode] = useState<'unified' | 'individual-bridge' | 'direct'>('unified');
+  const [bridgeMode, setBridgeMode] = useState<'unified' | 'individual' | 'direct'>('unified');
   const [mcpdUrl, setMcpdUrl] = useState('http://localhost:8090');
   const [includeNamespacing, setIncludeNamespacing] = useState(true);
-  
+
   useEffect(() => {
     if (visible) {
       generateConfig();
@@ -47,243 +45,80 @@ const ExportConfigModal: React.FC<ExportConfigModalProps> = ({ visible, onClose 
   }, [visible, activeTab, bridgeMode, mcpdUrl, includeNamespacing]);
 
   const generateConfig = async () => {
-    if (activeTab === 'mcp-http') {
-      // Generate MCP-over-HTTP configuration examples
-      const servers = await window.electronAPI.listServers();
-      const serverExamples = servers.map(s => 
-        `http://localhost:3001/partner/mcpd/${s.name}/mcp`
-      ).slice(0, 3);
-      
-      const config = `# MCP-over-HTTP Configuration Examples
-
-## For Cursor / Similar Tools
-When these tools add MCP-over-HTTP support, configure them with:
-
-### Option 1: All Servers (Unified)
-\`\`\`json
-{
-  "mcp": {
-    "servers": [{
-      "name": "mcpd-gateway",
-      "url": "http://localhost:3001/mcp"
-    }]
-  }
-}
-\`\`\`
-
-### Option 2: Individual Servers
-\`\`\`json
-{
-  "mcp": {
-    "servers": [
-${servers.slice(0, 3).map(s => `      {
-        "name": "${s.name}",
-        "url": "http://localhost:3001/partner/mcpd/${s.name}/mcp"
-      }`).join(',\n')}
-    ]
-  }
-}
-\`\`\`
-
-## Testing with curl
-
-\`\`\`bash
-# Initialize connection
-curl -X POST http://localhost:3001/mcp \\
-  -H "Content-Type: application/json" \\
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
-
-# List tools
-curl -X POST http://localhost:3001/mcp \\
-  -H "Content-Type: application/json" \\
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-
-# Call a tool
-curl -X POST http://localhost:3001/mcp \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "jsonrpc":"2.0",
-    "id":3,
-    "method":"tools/call",
-    "params":{
-      "name":"filesystem__read_file",
-      "arguments":{"path":"/tmp/test.txt"}
-    }
-  }'
-\`\`\`
-
-## Available Server URLs
-${serverExamples.map(url => `- ${url}`).join('\n')}
-${servers.length > 3 ? `- ... and ${servers.length - 3} more servers` : ''}
-`;
-      
-      setConfigContent(config);
-    } else if (activeTab === 'claude-desktop') {
+    if (activeTab === 'claude-desktop') {
       if (bridgeMode === 'unified') {
-        // Generate config for unified bridge mode (all servers)
+        // Unified mcpd-proxy config (all servers via single proxy).
         const config = {
           mcpServers: {
-            'mcpd-all': {
-              command: 'mcpd-bridge',
-              args: [],
+            'mcpd': {
+              command: 'npx',
+              args: ['@mozilla-ai/mcpd-proxy'],
               env: {
-                MCPD_URL: mcpdUrl,
+                MCPD_ADDR: mcpdUrl,
               },
             },
           },
         };
         setConfigContent(JSON.stringify(config, null, 2));
-      } else if (bridgeMode === 'individual-bridge') {
-        // Generate individual bridge configs (one bridge per server)
+      } else if (bridgeMode === 'individual') {
+        // Individual mcpd-proxy configs (one per server).
         try {
           const servers = await window.electronAPI.listServers();
           const config: any = { mcpServers: {} };
-          
-          for (const server of servers) {
-            const args = ['--server', server.name];
-            if (!includeNamespacing) {
-              args.push('--no-namespace');
-            }
 
+          for (const server of servers) {
             config.mcpServers[`mcpd-${server.name}`] = {
-              command: 'mcpd-bridge',
-              args: args,
+              command: 'npx',
+              args: ['@mozilla-ai/mcpd-proxy'],
               env: {
-                MCPD_URL: mcpdUrl,
+                MCPD_ADDR: mcpdUrl,
               },
             };
           }
-          
+
           setConfigContent(JSON.stringify(config, null, 2));
         } catch (error) {
           console.error('Failed to generate config:', error);
           message.error('Failed to generate configuration');
         }
       } else {
-        // Generate direct server configs (no bridge)
+        // Direct server configs (no proxy).
         try {
           const servers = await window.electronAPI.listServers();
           const config: any = { mcpServers: {} };
-          
+
           for (const server of servers) {
-            // Parse the package string to determine runtime
+            // Parse the package string to determine runtime.
             const [runtime, pkg] = server.package?.split('::') || ['npx', server.package];
-            
+
             config.mcpServers[server.name] = {
               command: runtime || 'npx',
               args: [pkg || server.package],
             };
-            
-            // Add environment variables if any
+
             if (server.requiredEnv && server.requiredEnv.length > 0) {
               config.mcpServers[server.name].env = {};
               for (const envVar of server.requiredEnv) {
                 config.mcpServers[server.name].env[envVar] = `<YOUR_${envVar}>`;
               }
             }
-            
-            // Add arguments if any
+
             if (server.requiredArgs && server.requiredArgs.length > 0) {
               config.mcpServers[server.name].args.push(...server.requiredArgs);
             }
           }
-          
+
           setConfigContent(JSON.stringify(config, null, 2));
         } catch (error) {
           console.error('Failed to generate config:', error);
           message.error('Failed to generate configuration');
         }
       }
-    } else if (activeTab === 'docker') {
-      // Generate Docker Compose config
-      const dockerCompose = `version: '3.8'
-
-services:
-  mcpd:
-    image: mozilla/mcpd:latest
-    ports:
-      - "${mcpdUrl.split(':')[2] || '8090'}:8090"
-    volumes:
-      - ~/.config/mcpd:/root/.config/mcpd
-    environment:
-      - MCPD_LOG_LEVEL=info
-    restart: unless-stopped
-
-  mcpd-bridge:
-    image: mcpd-bridge-server:latest
-    depends_on:
-      - mcpd
-    environment:
-      - MCPD_URL=http://mcpd:8090
-    stdin_open: true
-    tty: true
-    restart: unless-stopped`;
-      
-      setConfigContent(dockerCompose);
     } else if (activeTab === 'api') {
-      // Generate API usage examples
+      // Generate API usage examples using mcpd's built-in HTTP API.
       const apiExamples = `# mcpd Access Methods
 
-## 1. HTTP Gateway (Recommended for Web/API Access)
-
-Start the HTTP gateway:
-\`\`\`bash
-mcpd-gateway
-# Or with custom settings:
-API_KEY=your-secure-key PORT=3000 mcpd-gateway
-\`\`\`
-
-### REST API Examples
-
-List all servers:
-\`\`\`bash
-curl http://localhost:3000/api/servers \\
-  -H "X-API-Key: default-dev-key"
-\`\`\`
-
-Call a tool:
-\`\`\`bash
-curl -X POST http://localhost:3000/api/tools/call \\
-  -H "X-API-Key: default-dev-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "server": "filesystem",
-    "tool": "read_file",
-    "params": {"path": "/tmp/test.txt"}
-  }'
-\`\`\`
-
-### JavaScript/TypeScript Client
-\`\`\`javascript
-const response = await fetch('http://localhost:3000/api/tools/call', {
-  method: 'POST',
-  headers: {
-    'X-API-Key': 'default-dev-key',
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    server: 'filesystem',
-    tool: 'read_file',
-    params: { path: '/tmp/test.txt' }
-  })
-});
-const result = await response.json();
-\`\`\`
-
-### WebSocket Connection
-\`\`\`javascript
-const ws = new WebSocket('ws://localhost:3000/ws?apiKey=default-dev-key');
-
-ws.send(JSON.stringify({
-  type: 'tools.call',
-  server: 'filesystem',
-  tool: 'read_file',
-  params: { path: '/tmp/test.txt' },
-  id: 'req-123'
-}));
-\`\`\`
-
-## 2. Direct mcpd API Access
+## 1. mcpd HTTP API (Direct Access)
 
 Base URL: ${mcpdUrl}
 
@@ -304,13 +139,43 @@ curl -X POST ${mcpdUrl}/api/v1/servers/{server_name}/tools/{tool_name}/call \\
   -d '{"arguments": {}}'
 \`\`\`
 
-## 3. STDIO Bridge (for Claude Desktop)
+## 2. JavaScript/TypeScript SDK
 
-Install and run:
+Install the SDK:
 \`\`\`bash
-MCPD_URL=${mcpdUrl} mcpd-bridge
+npm install @mozilla-ai/mcpd
+\`\`\`
+
+Usage:
+\`\`\`javascript
+import { McpdClient } from "@mozilla-ai/mcpd";
+
+const client = new McpdClient({ apiEndpoint: "${mcpdUrl}" });
+
+// List servers.
+const servers = await client.listServers();
+
+// Get tools for a server.
+const tools = await client.servers.time.getTools();
+
+// Call a tool.
+const result = await client.servers.time.callTool("get_current_time", {
+  timezone: "UTC"
+});
+\`\`\`
+
+## 3. STDIO Proxy (for IDE Integrations)
+
+For Claude Desktop, Cursor, and other IDEs that require STDIO-based MCP servers:
+\`\`\`bash
+npx @mozilla-ai/mcpd-proxy
+\`\`\`
+
+Set the mcpd address via environment variable:
+\`\`\`bash
+MCPD_ADDR=${mcpdUrl} npx @mozilla-ai/mcpd-proxy
 \`\`\``;
-      
+
       setConfigContent(apiExamples);
     }
   };
@@ -324,18 +189,14 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
     const blob = new Blob([configContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    
+
     let filename = 'config';
-    if (activeTab === 'mcp-http') {
-      filename = 'mcp-http-config.md';
-    } else if (activeTab === 'claude-desktop') {
+    if (activeTab === 'claude-desktop') {
       filename = 'claude_desktop_config.json';
-    } else if (activeTab === 'docker') {
-      filename = 'docker-compose.yml';
     } else if (activeTab === 'api') {
       filename = 'api-examples.md';
     }
-    
+
     a.href = url;
     a.download = filename;
     a.click();
@@ -371,101 +232,13 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
       ]}
     >
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane 
-          tab={
-            <span>
-              <GlobalOutlined />
-              MCP-over-HTTP
-            </span>
-          } 
-          key="mcp-http"
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <Alert
-              message="MCP-over-HTTP Endpoint (Composio-style)"
-              description={
-                <div>
-                  <p>This provides a direct HTTP endpoint that speaks the MCP protocol, similar to Composio's approach.</p>
-                  <p>Tools like Cursor and Claude can connect directly to this URL (when they add HTTP support).</p>
-                </div>
-              }
-              type="info"
-              showIcon
-            />
-            
-            <Card title="Quick Setup" size="small">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
-                  <Text strong>1. Start the MCP-over-HTTP endpoint:</Text>
-                  <Input.TextArea
-                    value="mcpd-gateway start:mcp"
-                    readOnly
-                    autoSize
-                    style={{ 
-                      fontFamily: 'monospace',
-                      marginTop: 8,
-                      marginBottom: 16
-                    }}
-                  />
-                </div>
-                
-                <Divider>For Cursor (when supported)</Divider>
-                
-                <div>
-                  <Text strong>2. Run this setup command:</Text>
-                  <Input.TextArea
-                    value='mcpd-setup "http://localhost:3001/mcp" --client cursor'
-                    readOnly
-                    autoSize
-                    style={{ 
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      marginTop: 8,
-                      marginBottom: 8
-                    }}
-                  />
-                  <Text type="secondary">This would automatically configure Cursor with your mcpd endpoint</Text>
-                </div>
-                
-                <Divider>Manual Configuration</Divider>
-                
-                <div>
-                  <Text strong>Configure manually with these URLs:</Text>
-                  <div style={{ marginTop: 8 }}>
-                    <Text type="secondary">All servers (unified):</Text>
-                    <Input value="http://localhost:3001/mcp" readOnly />
-                  </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Text type="secondary">Specific server (example):</Text>
-                    <Input value="http://localhost:3001/partner/mcpd/filesystem/mcp" readOnly />
-                  </div>
-                </div>
-                
-                <Divider />
-                
-                <Alert
-                  message="Tool Support Status"
-                  description={
-                    <ul style={{ marginBottom: 0 }}>
-                      <li>✅ Custom integrations (via MCP protocol)</li>
-                      <li>⏳ Cursor - Check latest documentation</li>
-                      <li>⏳ Claude - Planned HTTP support</li>
-                      <li>⏳ Windsurf - Check their docs</li>
-                    </ul>
-                  }
-                  type="warning"
-                />
-              </Space>
-            </Card>
-          </Space>
-        </TabPane>
-        <TabPane 
+        <TabPane
           tab={
             <span>
               <DesktopOutlined />
               Claude Desktop
             </span>
-          } 
+          }
           key="claude-desktop"
         >
           <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -483,7 +256,7 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
                 </Space>
               }
             />
-            
+
             <Card size="small">
               <Radio.Group
                 value={bridgeMode}
@@ -494,22 +267,22 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
                   <Space direction="vertical" style={{ marginLeft: 24 }}>
                     <Space>
                       <ApiOutlined />
-                      <strong>Unified Bridge</strong>
+                      <strong>Unified Proxy</strong>
                       <Text type="secondary">(Recommended)</Text>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Single connection exposing all servers with namespaced tools (e.g., github__create_issue)
+                      Single mcpd-proxy connection exposing all servers with namespaced tools
                     </Text>
                   </Space>
                 </Radio>
-                <Radio value="individual-bridge">
+                <Radio value="individual">
                   <Space direction="vertical" style={{ marginLeft: 24 }}>
                     <Space>
                       <CloudOutlined />
-                      <strong>Individual Bridges</strong>
+                      <strong>Individual Proxies</strong>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Separate bridge connection for each server (better isolation, selective enabling)
+                      Separate mcpd-proxy connection for each server (better isolation)
                     </Text>
                   </Space>
                 </Radio>
@@ -525,8 +298,8 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
                   </Space>
                 </Radio>
               </Radio.Group>
-              
-              {(bridgeMode === 'unified' || bridgeMode === 'individual-bridge') && (
+
+              {(bridgeMode === 'unified' || bridgeMode === 'individual') && (
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Divider style={{ margin: '12px 0' }} />
                   <Text>mcpd URL:</Text>
@@ -535,25 +308,9 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
                     onChange={(e) => setMcpdUrl(e.target.value)}
                     placeholder="http://localhost:8090"
                   />
-                  
-                  {bridgeMode === 'individual-bridge' && (
-                    <div style={{ marginTop: 12 }}>
-                      <Checkbox
-                        checked={includeNamespacing}
-                        onChange={(e) => setIncludeNamespacing(e.target.checked)}
-                      >
-                        Include server prefix in tool names
-                      </Checkbox>
-                      <Text type="secondary" style={{ display: 'block', marginLeft: 24, fontSize: 12 }}>
-                        {includeNamespacing 
-                          ? 'Tools will be prefixed: filesystem__read_file'
-                          : 'Tools will use original names: read_file'}
-                      </Text>
-                    </div>
-                  )}
-                  
+
                   <Alert
-                    message={bridgeMode === 'unified' ? 'Unified Bridge Benefits' : 'Individual Bridge Benefits'}
+                    message={bridgeMode === 'unified' ? 'Unified Proxy Benefits' : 'Individual Proxy Benefits'}
                     description={
                       bridgeMode === 'unified' ? (
                         <ul style={{ marginBottom: 0, fontSize: 12 }}>
@@ -566,7 +323,6 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
                         <ul style={{ marginBottom: 0, fontSize: 12 }}>
                           <li>Better isolation between servers</li>
                           <li>Enable/disable servers individually</li>
-                          <li>Optional tool namespacing</li>
                           <li>Easier debugging per server</li>
                         </ul>
                       )
@@ -578,51 +334,32 @@ MCPD_URL=${mcpdUrl} mcpd-bridge
             </Card>
           </Space>
         </TabPane>
-        
-        <TabPane 
-          tab={
-            <span>
-              <CloudOutlined />
-              Docker
-            </span>
-          } 
-          key="docker"
-        >
-          <Alert
-            message="Docker Deployment"
-            description="Use this Docker Compose configuration to run mcpd and the bridge server in containers."
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-        </TabPane>
-        
-        <TabPane 
+
+        <TabPane
           tab={
             <span>
               <ApiOutlined />
               API
             </span>
-          } 
+          }
           key="api"
         >
           <Alert
             message="Direct API Access"
-            description="Examples for accessing mcpd directly via HTTP API or using the bridge server programmatically."
+            description="Examples for accessing mcpd directly via HTTP API, the JavaScript SDK, or using mcpd-proxy for IDE integrations."
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
           />
         </TabPane>
       </Tabs>
-      
+
       <Divider>Configuration</Divider>
-      
+
       <MonacoEditor
         height="400px"
         language={
           activeTab === 'claude-desktop' ? 'json' :
-          activeTab === 'docker' ? 'yaml' :
           'markdown'
         }
         theme="vs-dark"

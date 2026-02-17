@@ -1,33 +1,33 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import axios, { AxiosInstance } from 'axios';
+import { McpdClient } from '@mozilla-ai/mcpd';
 import * as TOML from '@iarna/toml';
 import { app } from 'electron';
-import { DaemonStatus, MCPServer, MCPTool } from '@shared/types';
+import { DaemonStatus, MCPTool } from '@shared/types';
 
 export class McpdManager {
   private daemonProcess: ChildProcess | null = null;
-  private apiClient: AxiosInstance;
+  private mcpdClient: McpdClient;
   private logPath: string;
   private configPath: string;
   private mcpdPath: string;
 
   constructor() {
-    this.apiClient = axios.create({
-      baseURL: 'http://localhost:8090/api/v1',
+    this.mcpdClient = new McpdClient({
+      apiEndpoint: 'http://localhost:8090',
       timeout: 10000,
     });
-    
-    // Use proper user data directory for config and logs
+
+    // Use proper user data directory for config and logs.
     const userDataPath = app.getPath('userData');
     this.logPath = path.join(userDataPath, 'mcpd.log');
     this.configPath = path.join(userDataPath, '.mcpd.toml');
-    
-    // Find mcpd binary path
+
+    // Find mcpd binary path.
     this.mcpdPath = this.findMcpdPath();
-    
-    // Ensure user data directory exists
+
+    // Ensure user data directory exists.
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true });
     }
@@ -39,12 +39,12 @@ export class McpdManager {
     logs.push(`[${this.constructor.name}] mcpdPath: ${this.mcpdPath}`);
     console.log(`[${this.constructor.name}] startDaemon called`);
     console.log(`[${this.constructor.name}] mcpdPath:`, this.mcpdPath);
-    
-    // First check if daemon is already running
+
+    // First check if daemon is already running.
     const currentStatus = await this.getStatus();
     logs.push(`[${this.constructor.name}] Current daemon status: ${JSON.stringify(currentStatus)}`);
     console.log(`[${this.constructor.name}] Current daemon status:`, currentStatus);
-    
+
     if (currentStatus.running) {
       logs.push('Daemon already running, connecting to existing instance');
       console.log('Daemon already running, connecting to existing instance');
@@ -58,11 +58,11 @@ export class McpdManager {
     return new Promise((resolve, reject) => {
       console.log(`[${this.constructor.name}] Starting daemon promise...`);
       logs.push(`[${this.constructor.name}] Starting daemon promise...`);
-      
-      // Validate mcpd exists
+
+      // Validate mcpd exists.
       if (this.mcpdPath !== 'mcpd' && !fs.existsSync(this.mcpdPath)) {
         const isSystemPath = this.mcpdPath.startsWith('/');
-        const errorMsg = isSystemPath 
+        const errorMsg = isSystemPath
           ? `mcpd binary not found at ${this.mcpdPath}. This should not happen as mcpd is bundled with the app. Please report this issue.`
           : `mcpd binary not found at ${this.mcpdPath}. Please install mcpd using: brew install --cask mozilla-ai/tap/mcpd`;
         console.error(`[${this.constructor.name}] Binary not found:`, errorMsg);
@@ -70,11 +70,11 @@ export class McpdManager {
         reject(new Error(errorMsg));
         return;
       }
-      
+
       console.log(`[${this.constructor.name}] mcpd binary found at:`, this.mcpdPath);
       logs.push(`[${this.constructor.name}] mcpd binary found at: ${this.mcpdPath}`);
 
-      // Check if config exists, if not create it
+      // Check if config exists, if not create it.
       if (!fs.existsSync(this.configPath)) {
         this.initConfig();
       }
@@ -86,9 +86,9 @@ export class McpdManager {
         `--log-path=${this.logPath}`,
         `--config-file=${this.configPath}`
       ]);
-      
+
       try {
-        // Ensure PATH includes common locations for node/npm/npx
+        // Ensure PATH includes common locations for node/npm/npx.
         const envPath = process.env.PATH || '';
         const additionalPaths = [
           '/usr/local/bin',
@@ -104,8 +104,8 @@ export class McpdManager {
           `${process.env.HOME}/.nvm/versions/node/v18.0.0/bin`,
           `${process.env.HOME}/.nvm/versions/node/v20.0.0/bin`,
         ];
-        
-        // Try to find node installation dynamically
+
+        // Try to find node installation dynamically.
         try {
           const { execSync } = require('child_process');
           const nodePath = execSync('which node', { encoding: 'utf-8' }).trim();
@@ -114,14 +114,14 @@ export class McpdManager {
             additionalPaths.push(nodeDir);
           }
         } catch (e) {
-          // Ignore if we can't find node
+          // Ignore if we can't find node.
         }
-        
-        // Combine paths, removing duplicates
+
+        // Combine paths, removing duplicates.
         const pathSet = new Set(envPath.split(':').filter(Boolean));
         additionalPaths.forEach(p => pathSet.add(p));
         const fullPath = Array.from(pathSet).join(':');
-        
+
         this.daemonProcess = spawn(this.mcpdPath, [
           'daemon',
           '--dev',
@@ -130,14 +130,14 @@ export class McpdManager {
           `--config-file=${this.configPath}`
         ], {
           cwd: app.getPath('userData'),
-          env: { 
+          env: {
             ...process.env,
             PATH: fullPath,
             NODE_PATH: '/usr/local/lib/node_modules:/opt/homebrew/lib/node_modules'
           },
           detached: false,
         });
-        
+
         console.log(`[${this.constructor.name}] Daemon process spawned, pid:`, this.daemonProcess.pid);
       } catch (spawnError) {
         console.error(`[${this.constructor.name}] Failed to spawn daemon:`, spawnError);
@@ -146,11 +146,11 @@ export class McpdManager {
       }
 
       let errorOutput = '';
-      
-      // Add a flag to track if we've already resolved/rejected
+
+      // Add a flag to track if we've already resolved/rejected.
       let hasResolved = false;
-      
-      // Add an absolute timeout to ensure we always resolve or reject
+
+      // Add an absolute timeout to ensure we always resolve or reject.
       const absoluteTimeout = setTimeout(() => {
         if (!hasResolved) {
           hasResolved = true;
@@ -178,16 +178,16 @@ export class McpdManager {
         const output = data.toString();
         console.error(`mcpd stderr: ${output}`);
         errorOutput += output;
-        
-        // Check for port already in use error
+
+        // Check for port already in use error.
         if (output.includes('address already in use')) {
           this.daemonProcess?.kill();
           this.daemonProcess = null;
-          
-          // Try to connect to existing daemon
+
+          // Try to connect to existing daemon.
           setTimeout(async () => {
             if (hasResolved) return;
-            
+
             try {
               const status = await this.getStatus();
               if (status.running) {
@@ -218,21 +218,21 @@ export class McpdManager {
       this.daemonProcess.on('exit', (code) => {
         console.log(`mcpd daemon exited with code ${code}`);
         this.daemonProcess = null;
-        
+
         if (errorOutput.includes('address already in use')) {
-          // Already handled above
+          // Already handled above.
           return;
         }
-        
+
         if (code !== 0 && code !== null) {
           reject(new Error(`Daemon exited with code ${code}: ${errorOutput}`));
         }
       });
-      
-      // Wait for the daemon to start (servers may need time to initialize)
+
+      // Wait for the daemon to start (servers may need time to initialize).
       setTimeout(async () => {
         if (hasResolved) return;
-        
+
         try {
           const status = await this.getStatus();
           if (status.running) {
@@ -266,22 +266,22 @@ export class McpdManager {
         this.daemonProcess!.kill('SIGTERM');
       });
     } else {
-      // Try to stop external daemon using pkill
+      // Try to stop external daemon using pkill.
       return new Promise((resolve, reject) => {
         const pkill = spawn('pkill', ['-f', 'mcpd daemon']);
-        
+
         pkill.on('exit', (code) => {
-          // pkill returns 0 if processes were found and killed, 1 if none found
+          // pkill returns 0 if processes were found and killed, 1 if none found.
           if (code === 0 || code === 1) {
             resolve();
           } else {
             reject(new Error(`Failed to stop daemon, exit code: ${code}`));
           }
         });
-        
+
         pkill.on('error', (error) => {
           console.error('Failed to execute pkill:', error);
-          // Fallback: just resolve as we might not have pkill on all systems
+          // Fallback: just resolve as we might not have pkill on all systems.
           resolve();
         });
       });
@@ -290,8 +290,8 @@ export class McpdManager {
 
   async getStatus(): Promise<DaemonStatus> {
     try {
-      // Try the health/servers endpoint which exists in the API
-      const response = await this.apiClient.get('/health/servers');
+      // Use the SDK to check server health; success means daemon is running.
+      await this.mcpdClient.getServerHealth();
       return {
         running: true,
         pid: this.daemonProcess?.pid,
@@ -299,9 +299,9 @@ export class McpdManager {
         logPath: this.logPath,
       };
     } catch (error) {
-      // If that fails, try the servers endpoint as a fallback
+      // If health check fails, try listing servers as a fallback.
       try {
-        await this.apiClient.get('/servers');
+        await this.mcpdClient.listServers();
         return {
           running: true,
           pid: this.daemonProcess?.pid,
@@ -319,8 +319,7 @@ export class McpdManager {
 
   async getServers(): Promise<string[]> {
     try {
-      const response = await this.apiClient.get('/servers');
-      return response.data;
+      return await this.mcpdClient.listServers();
     } catch (error) {
       console.error('Failed to get servers:', error);
       return [];
@@ -329,8 +328,12 @@ export class McpdManager {
 
   async getServerTools(serverName: string): Promise<MCPTool[]> {
     try {
-      const response = await this.apiClient.get(`/servers/${serverName}/tools`);
-      return response.data.tools || [];
+      const tools = await this.mcpdClient.servers[serverName].getTools();
+      return tools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      }));
     } catch (error) {
       console.error(`Failed to get tools for ${serverName}:`, error);
       return [];
@@ -339,11 +342,7 @@ export class McpdManager {
 
   async callTool(server: string, tool: string, args: any): Promise<any> {
     try {
-      const response = await this.apiClient.post(
-        `/servers/${server}/tools/${tool}`,
-        args
-      );
-      return response.data;
+      return await this.mcpdClient.servers[server].callTool(tool, args);
     } catch (error) {
       console.error(`Failed to call tool ${tool} on ${server}:`, error);
       throw error;
@@ -445,24 +444,24 @@ export class McpdManager {
     requiredArgsBool?: string[];
   }): Promise<void> {
     console.log(`[${this.constructor.name}] addServerToConfig called with:`, server);
-    
-    // Load existing config
+
+    // Load existing config.
     const configContent = fs.readFileSync(this.configPath, 'utf-8');
     console.log(`[${this.constructor.name}] Current config content:`, configContent);
     const config = TOML.parse(configContent) as any;
 
-    // Ensure servers array exists
+    // Ensure servers array exists.
     if (!config.servers) {
       config.servers = [];
     }
 
-    // Check for duplicate name
+    // Check for duplicate name.
     const exists = config.servers.some((s: any) => s.name === server.name);
     if (exists) {
       throw new Error(`Server with name '${server.name}' already exists`);
     }
 
-    // Build new server entry
+    // Build new server entry.
     const newServer: any = {
       name: server.name,
       package: server.package,
@@ -474,15 +473,15 @@ export class McpdManager {
     if (server.requiredEnv && server.requiredEnv.length > 0) {
       newServer.required_env = server.requiredEnv;
     }
-    // Handle arguments - mcpd expects args as an array with separate elements
+    // Handle arguments — mcpd expects args as an array with separate elements.
     if (server.requiredArgs && server.requiredArgs.length > 0) {
       const args: string[] = [];
       server.requiredArgs.forEach(arg => {
-        // Split --key=value into ["--key", "value"]
+        // Split --key=value into ["--key", "value"].
         if (arg.includes('=')) {
           const [key, ...valueParts] = arg.split('=');
           args.push(key);
-          args.push(valueParts.join('=')); // Handle cases where value contains '='
+          args.push(valueParts.join('='));
         } else {
           args.push(arg);
         }
@@ -496,29 +495,29 @@ export class McpdManager {
       newServer.required_args_bool = server.requiredArgsBool;
     }
 
-    // Add to config
+    // Add to config.
     config.servers.push(newServer);
     console.log(`[${this.constructor.name}] New server entry:`, newServer);
 
-    // Write back to file
+    // Write back to file.
     const tomlString = TOML.stringify(config);
     console.log(`[${this.constructor.name}] Writing new config:`, tomlString);
     fs.writeFileSync(this.configPath, tomlString);
     console.log(`[${this.constructor.name}] Config written successfully to:`, this.configPath);
-    
-    // Restart daemon to pick up new configuration
+
+    // Restart daemon to pick up new configuration.
     console.log(`[${this.constructor.name}] Restarting daemon to load new server...`);
     const wasRunning = await this.getStatus();
     if (wasRunning.running) {
       await this.stopDaemon();
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await this.startDaemon();
       console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
   }
 
   async removeServerFromConfig(name: string): Promise<void> {
-    // Load existing config
+    // Load existing config.
     const configContent = fs.readFileSync(this.configPath, 'utf-8');
     const config = TOML.parse(configContent) as any;
 
@@ -526,7 +525,7 @@ export class McpdManager {
       throw new Error('No servers configured');
     }
 
-    // Filter out the server
+    // Filter out the server.
     const originalLength = config.servers.length;
     config.servers = config.servers.filter((s: any) => s.name !== name);
 
@@ -534,16 +533,16 @@ export class McpdManager {
       throw new Error(`Server '${name}' not found`);
     }
 
-    // Write back to file
+    // Write back to file.
     const tomlString = TOML.stringify(config);
     fs.writeFileSync(this.configPath, tomlString);
-    
-    // Restart daemon to pick up configuration changes
+
+    // Restart daemon to pick up configuration changes.
     console.log(`[${this.constructor.name}] Restarting daemon to reload configuration...`);
     const wasRunning = await this.getStatus();
     if (wasRunning.running) {
       await this.stopDaemon();
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a moment for clean shutdown
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await this.startDaemon();
       console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
@@ -560,11 +559,11 @@ export class McpdManager {
   }
 
   private findMcpdPath(): string {
-    // First priority: Check for existing system installation (for developers)
+    // First priority: Check for existing system installation (for developers).
     const systemPaths = [
-      '/opt/homebrew/bin/mcpd',     // Homebrew on Apple Silicon
-      '/usr/local/bin/mcpd',        // Homebrew on Intel Mac / standard install
-      '/usr/bin/mcpd',              // System install
+      '/opt/homebrew/bin/mcpd',
+      '/usr/local/bin/mcpd',
+      '/usr/bin/mcpd',
     ];
 
     for (const mcpdPath of systemPaths) {
@@ -574,11 +573,11 @@ export class McpdManager {
           return mcpdPath;
         }
       } catch (error) {
-        // Continue checking
+        // Continue checking.
       }
     }
 
-    // Second priority: Use bundled mcpd binary
+    // Second priority: Use bundled mcpd binary.
     const bundledPath = this.getBundledMcpdPath();
     if (bundledPath && fs.existsSync(bundledPath)) {
       console.log(`Using bundled mcpd at: ${bundledPath}`);
@@ -586,16 +585,16 @@ export class McpdManager {
     }
 
     console.warn('mcpd not found in system paths or bundled, falling back to PATH lookup');
-    return 'mcpd'; // Final fallback
+    return 'mcpd';
   }
 
   private getBundledMcpdPath(): string | null {
     try {
-      // Determine platform-specific binary name
+      // Determine platform-specific binary name.
       const platform = process.platform;
       const arch = process.arch;
       let binaryName = 'mcpd';
-      
+
       if (platform === 'darwin') {
         binaryName = arch === 'arm64' ? 'mcpd-darwin-arm64' : 'mcpd-darwin-x64';
       } else if (platform === 'win32') {
@@ -604,30 +603,27 @@ export class McpdManager {
         binaryName = 'mcpd-linux';
       }
 
-      // In development, look in dist/resources
+      // In development, look in dist/resources.
       const devPath = path.join(__dirname, 'resources', binaryName);
       if (fs.existsSync(devPath)) {
         console.log(`Found bundled mcpd in dev path: ${devPath}`);
         return devPath;
       }
 
-      // In packaged app, check if we have process.resourcesPath
+      // In packaged app, check if we have process.resourcesPath.
       if (typeof process.resourcesPath !== 'undefined') {
-        // In packaged app, extraResources are placed in process.resourcesPath
         const prodPath = path.join(process.resourcesPath, 'resources', binaryName);
         if (fs.existsSync(prodPath)) {
           console.log(`Found bundled mcpd in prod path: ${prodPath}`);
           return prodPath;
         }
 
-        // Alternative location in packaged app
         const altProdPath = path.join(process.resourcesPath, binaryName);
         if (fs.existsSync(altProdPath)) {
           console.log(`Found bundled mcpd in alt prod path: ${altProdPath}`);
           return altProdPath;
         }
 
-        // Fallback: check in app.asar
         const asarPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'resources', binaryName);
         if (fs.existsSync(asarPath)) {
           console.log(`Found bundled mcpd in asar path: ${asarPath}`);

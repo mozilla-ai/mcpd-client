@@ -20,29 +20,16 @@ npm install
 npm run build
 npm link
 
-# Install mcpd-bridge-server globally
-echo -e "${BLUE}Installing mcpd-bridge-server...${NC}"
-cd "$SCRIPT_DIR/mcpd-bridge-server"
-npm install
-npm run build
-npm link
-
-# Install mcpd-http-gateway globally
-echo -e "${BLUE}Installing mcpd-http-gateway...${NC}"
-cd "$SCRIPT_DIR/mcpd-http-gateway"
-npm install
-npm run build
-npm link
-
 echo -e "${GREEN}✅ Installation complete!${NC}"
 echo ""
 echo "You can now use these commands from anywhere:"
 echo "  mcpd-setup                    - Setup tool for connecting MCP servers"
 echo "  mcpd-setup list               - List available servers"
 echo "  mcpd-setup [server] --client claude  - Setup for Claude Desktop"
-echo "  mcpd-setup [server] --client http    - Start HTTP gateway"
-echo "  mcpd-bridge                   - MCP bridge server for STDIO connections"
-echo "  mcpd-gateway                  - HTTP/HTTPS gateway for MCP servers"
+echo "  mcpd-setup [server] --client cursor  - Setup for Cursor"
+echo ""
+echo "These commands configure your IDE to use mcpd-proxy (npx @mozilla-ai/mcpd-proxy)"
+echo "as the STDIO bridge between your IDE and the mcpd daemon."
 echo ""
 echo "Example:"
 echo "  mcpd-setup filesystem --client claude"
