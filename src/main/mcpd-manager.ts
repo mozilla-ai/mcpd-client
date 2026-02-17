@@ -471,7 +471,13 @@ export class McpdManager {
       proc.on("exit", (code) => {
         if (code === 0) {
           try {
-            const results = JSON.parse(output);
+            const parsed = JSON.parse(output);
+            // mcpd search may return { results: [...] } or a plain array.
+            const results = Array.isArray(parsed)
+              ? parsed
+              : Array.isArray(parsed?.results)
+                ? parsed.results
+                : [];
             resolve(results);
           } catch {
             resolve([]);
@@ -487,10 +493,8 @@ export class McpdManager {
     name: string;
     package: string;
     tools?: string[];
-    requiredEnv?: string[];
-    requiredArgs?: string[];
-    requiredArgsPositional?: string[];
-    requiredArgsBool?: string[];
+    env?: Record<string, string>;
+    args?: string[];
   }): Promise<void> {
     console.log(
       `[${this.constructor.name}] addServerToConfig called with:`,
@@ -499,10 +503,6 @@ export class McpdManager {
 
     // Load existing config.
     const configContent = fs.readFileSync(this.configPath, "utf-8");
-    console.log(
-      `[${this.constructor.name}] Current config content:`,
-      configContent,
-    );
     const config = TOML.parse(configContent) as any;
 
     // Ensure servers array exists.
@@ -516,7 +516,7 @@ export class McpdManager {
       throw new Error(`Server with name '${server.name}' already exists`);
     }
 
-    // Build new server entry.
+    // Build new server entry matching mcpd's expected TOML format.
     const newServer: any = {
       name: server.name,
       package: server.package,
@@ -525,32 +525,11 @@ export class McpdManager {
     if (server.tools && server.tools.length > 0) {
       newServer.tools = server.tools;
     }
-    if (server.requiredEnv && server.requiredEnv.length > 0) {
-      newServer.required_env = server.requiredEnv;
+    if (server.env && Object.keys(server.env).length > 0) {
+      newServer.env = server.env;
     }
-    // Handle arguments — mcpd expects args as an array with separate elements.
-    if (server.requiredArgs && server.requiredArgs.length > 0) {
-      const args: string[] = [];
-      server.requiredArgs.forEach((arg) => {
-        // Split --key=value into ["--key", "value"].
-        if (arg.includes("=")) {
-          const [key, ...valueParts] = arg.split("=");
-          args.push(key);
-          args.push(valueParts.join("="));
-        } else {
-          args.push(arg);
-        }
-      });
-      newServer.args = args;
-    }
-    if (
-      server.requiredArgsPositional &&
-      server.requiredArgsPositional.length > 0
-    ) {
-      newServer.required_args_positional = server.requiredArgsPositional;
-    }
-    if (server.requiredArgsBool && server.requiredArgsBool.length > 0) {
-      newServer.required_args_bool = server.requiredArgsBool;
+    if (server.args && server.args.length > 0) {
+      newServer.args = server.args;
     }
 
     // Add to config.
