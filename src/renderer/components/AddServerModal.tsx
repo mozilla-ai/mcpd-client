@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Modal,
   Form,
@@ -8,6 +8,7 @@ import {
   Space,
   Tabs,
   Tag,
+  Switch,
   Checkbox,
   Divider,
   List,
@@ -18,7 +19,6 @@ import {
   Col,
   Collapse,
   Empty,
-  Switch,
 } from "antd";
 import {
   CodeOutlined,
@@ -189,80 +189,95 @@ function extractFilterOptions(servers: TaggedServer[]) {
   };
 }
 
-// Shared argument processing: extracts env, positional, and named args from form values.
+// Processed arguments matching mcpd's ServerEntry TOML fields.
+interface ProcessedArgs {
+  requiredEnv: string[];
+  requiredArgs: string[];
+  requiredArgsBool: string[];
+  requiredArgsPositional: string[];
+}
+
+// Shared argument processing: maps registry arguments to mcpd config fields.
 function processArguments(
   serverArgs: Record<string, RegistryArgument> | undefined,
-  argValues: Record<string, string>,
-): { envVars: Record<string, string>; args: string[] } {
-  const envVars: Record<string, string> = {};
-  const positionalArgs: { position: number; value: string }[] = [];
-  const namedArgs: string[] = [];
+): ProcessedArgs {
+  const requiredEnv: string[] = [];
+  const requiredArgs: string[] = [];
+  const requiredArgsBool: string[] = [];
+  const positional: { position: number; name: string }[] = [];
 
-  for (const [key, arg] of Object.entries(serverArgs ?? {})) {
-    const value = argValues[key] ?? "";
-    if (!value && !arg.required) continue;
+  for (const [, arg] of Object.entries(serverArgs ?? {})) {
+    if (!arg.required) continue;
 
     switch (arg.type) {
       case "environment":
-        envVars[arg.name] = value;
+        requiredEnv.push(arg.name);
         break;
       case "argument":
-        namedArgs.push(arg.name, value);
+        requiredArgs.push(arg.name);
         break;
       case "argument_bool":
-        if (value === "true") namedArgs.push(arg.name);
+        requiredArgsBool.push(arg.name);
         break;
       case "argument_positional":
-        positionalArgs.push({ position: arg.position ?? 0, value });
+        positional.push({ position: arg.position ?? 0, name: arg.name });
         break;
       case "volume":
-        // Skip for non-Docker runtimes.
+        // Handled separately via volumes config.
         break;
     }
   }
 
-  const args = [
-    ...positionalArgs
+  return {
+    requiredEnv,
+    requiredArgs,
+    requiredArgsBool,
+    requiredArgsPositional: positional
       .sort((a, b) => a.position - b.position)
-      .map((a) => a.value)
-      .filter(Boolean),
-    ...namedArgs,
-  ];
-
-  return { envVars, args };
+      .map((a) => a.name),
+  };
 }
 
-// Generate correct mcpd TOML from registry data and form values.
+// Build the package identifier including version: runtime::package@version.
+function buildPackageId(installation: {
+  runtime: string;
+  package: string;
+  version?: string;
+}): string {
+  const base = `${installation.runtime}::${installation.package}`;
+  return installation.version ? `${base}@${installation.version}` : base;
+}
+
+// Generate mcpd TOML matching the ServerEntry struct.
 function generateToml(
   server: RegistryServer,
   runtimeKey: string,
-  argValues: Record<string, string>,
   selectedTools: string[],
 ): string {
   const installation = server.installations[runtimeKey];
   if (!installation) return "# No installation found for this runtime";
 
-  const pkg = `${installation.runtime}::${installation.package}`;
+  const tomlArr = (items: string[]) =>
+    `[${items.map((i) => `"${escapeToml(i)}"`).join(", ")}]`;
 
   let toml = "[[servers]]\n";
-  toml += `name = "${escapeToml(server.id)}"\n`;
-  toml += `package = "${escapeToml(pkg)}"\n`;
+  toml += `  name = "${escapeToml(server.id)}"\n`;
+  toml += `  package = "${escapeToml(buildPackageId(installation))}"\n`;
+  toml += `  tools = ${tomlArr(selectedTools)}\n`;
 
-  if (selectedTools.length > 0 && selectedTools.length < server.tools.length) {
-    toml += `tools = [${selectedTools.map((t) => `"${escapeToml(t)}"`).join(", ")}]\n`;
+  const processed = processArguments(server.arguments);
+
+  if (processed.requiredEnv.length > 0) {
+    toml += `  required_env = ${tomlArr(processed.requiredEnv)}\n`;
   }
-
-  const { envVars, args } = processArguments(server.arguments, argValues);
-
-  if (Object.keys(envVars).length > 0) {
-    const pairs = Object.entries(envVars)
-      .map(([k, v]) => `${k} = "${escapeToml(v)}"`)
-      .join(", ");
-    toml += `env = { ${pairs} }\n`;
+  if (processed.requiredArgs.length > 0) {
+    toml += `  required_args = ${tomlArr(processed.requiredArgs)}\n`;
   }
-
-  if (args.length > 0) {
-    toml += `args = [${args.map((a) => `"${escapeToml(a)}"`).join(", ")}]\n`;
+  if (processed.requiredArgsBool.length > 0) {
+    toml += `  required_args_bool = ${tomlArr(processed.requiredArgsBool)}\n`;
+  }
+  if (processed.requiredArgsPositional.length > 0) {
+    toml += `  required_args_positional = ${tomlArr(processed.requiredArgsPositional)}\n`;
   }
 
   return toml;
@@ -283,20 +298,31 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   );
   const [selectedRuntime, setSelectedRuntime] = useState<string>("");
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
-  const [argValues, setArgValues] = useState<Record<string, string>>({});
   const [tomlPreview, setTomlPreview] = useState("");
   const [adding, setAdding] = useState(false);
+  const [argValues, setArgValues] = useState<Record<string, string | boolean>>(
+    {},
+  );
+
+  const configCardRef = useRef<HTMLDivElement>(null);
 
   // Registry data: bundled snapshot, overlaid with live search results.
   const [liveServers, setLiveServers] = useState<TaggedServer[]>([]);
   const [loadingLive, setLoadingLive] = useState(false);
 
-  // Merge bundled + client-specific + live data (live wins on ID conflicts).
+  // Merge bundled + client-specific + live data. For duplicate IDs, prefer
+  // mozilla-ai entries over other sources (e.g. mcpm).
   const allServers = useMemo(() => {
     const merged = new Map<string, TaggedServer>();
-    for (const s of BUNDLED_SERVERS) merged.set(s.id, s);
-    for (const s of CLIENT_SERVERS) merged.set(s.id, s);
-    for (const s of liveServers) merged.set(s.id, s);
+    const setIfBetter = (s: TaggedServer) => {
+      const existing = merged.get(s.id);
+      if (!existing || s._source === "mozilla-ai") {
+        merged.set(s.id, s);
+      }
+    };
+    for (const s of BUNDLED_SERVERS) setIfBetter(s);
+    for (const s of CLIENT_SERVERS) setIfBetter(s);
+    for (const s of liveServers) setIfBetter(s);
     return Array.from(merged.values());
   }, [liveServers]);
 
@@ -335,7 +361,12 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     try {
       const results = await window.electronAPI.searchServers("*");
       if (Array.isArray(results)) {
-        setLiveServers(results.map((s) => ({ ...s, _source: "mozilla-ai" })));
+        setLiveServers(
+          results.map((s: RegistryServer & { source?: string }) => ({
+            ...s,
+            _source: s.source || "unknown",
+          })),
+        );
       }
     } catch {
       // Daemon may not be running; bundled data is sufficient.
@@ -367,12 +398,12 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   useEffect(() => {
     if (selectedServer && selectedRuntime) {
       setTomlPreview(
-        generateToml(selectedServer, selectedRuntime, argValues, selectedTools),
+        generateToml(selectedServer, selectedRuntime, selectedTools),
       );
     } else {
       setTomlPreview("");
     }
-  }, [selectedServer, selectedRuntime, argValues, selectedTools]);
+  }, [selectedServer, selectedRuntime, selectedTools]);
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -390,13 +421,13 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
 
   const selectServer = (server: TaggedServer) => {
     setSelectedServer(server);
+    setArgValues({});
 
     // Pick the recommended or first installation.
     const entries = Object.entries(server.installations);
     if (entries.length === 0) {
       setSelectedRuntime("");
       setSelectedTools(server.tools.map((t) => t.name));
-      setArgValues({});
       return;
     }
     const recommended = entries.find(([, inst]) => inst.recommended);
@@ -406,22 +437,19 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     // Auto-select all tools.
     setSelectedTools(server.tools.map((t) => t.name));
 
-    // Initialize argument values with examples.
-    const initialArgs: Record<string, string> = {};
-    for (const [key, arg] of Object.entries(server.arguments ?? {})) {
-      initialArgs[key] = arg.example ?? "";
-    }
-    setArgValues(initialArgs);
-
     // Pre-fill form.
     form.setFieldsValue({
       name: server.id,
-      package: `${installation.runtime}::${installation.package}`,
+      package: buildPackageId(installation),
     });
-  };
 
-  const updateArgValue = (key: string, value: string) => {
-    setArgValues((prev) => ({ ...prev, [key]: value }));
+    // Scroll config card into view after render.
+    requestAnimationFrame(() => {
+      configCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
 
   const updateFilter = (key: keyof ServerFilters, value: unknown) => {
@@ -430,17 +458,6 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
 
   const clearFilters = () => {
     setFilters(EMPTY_FILTERS);
-  };
-
-  // Validate that all required arguments have values.
-  const validateRequiredArgs = (): string | null => {
-    if (!selectedServer?.arguments) return null;
-    for (const [key, arg] of Object.entries(selectedServer.arguments)) {
-      if (arg.required && !(argValues[key] ?? "").trim()) {
-        return `${arg.name} is required`;
-      }
-    }
-    return null;
   };
 
   const handleAdd = async () => {
@@ -460,44 +477,78 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
         await window.electronAPI.addServer(serverConfig);
         message.success(`Server ${values.name} added successfully`);
       } else {
-        // Validate required arguments before submitting.
-        const validationError = validateRequiredArgs();
-        if (validationError) {
-          message.error(validationError);
-          return;
-        }
-
-        // Browse mode: build config from registry data + argument values.
+        // Browse mode: build config from registry data matching mcpd ServerEntry.
         const installation = selectedServer!.installations[selectedRuntime];
         if (!installation) {
           message.error("No installation found for selected runtime");
           return;
         }
-        const pkg = `${installation.runtime}::${installation.package}`;
 
-        const { envVars, args } = processArguments(
-          selectedServer!.arguments,
-          argValues,
-        );
+        const processed = processArguments(selectedServer!.arguments);
 
         const serverConfig: Record<string, unknown> = {
           name: selectedServer!.id,
-          package: pkg,
+          package: buildPackageId(installation),
+          tools: selectedTools,
         };
-        if (
-          selectedTools.length > 0 &&
-          selectedTools.length < selectedServer!.tools.length
-        ) {
-          serverConfig.tools = selectedTools;
+        if (processed.requiredEnv.length > 0) {
+          serverConfig.required_env = processed.requiredEnv;
         }
-        if (Object.keys(envVars).length > 0) {
-          serverConfig.env = envVars;
+        if (processed.requiredArgs.length > 0) {
+          serverConfig.required_args = processed.requiredArgs;
         }
-        if (args.length > 0) {
-          serverConfig.args = args;
+        if (processed.requiredArgsBool.length > 0) {
+          serverConfig.required_args_bool = processed.requiredArgsBool;
+        }
+        if (processed.requiredArgsPositional.length > 0) {
+          serverConfig.required_args_positional =
+            processed.requiredArgsPositional;
         }
 
         await window.electronAPI.addServer(serverConfig);
+
+        // Save user-entered values to secrets.dev.toml if any were provided.
+        // Non-fatal: server config is already saved, so warn instead of failing.
+        if (selectedServer!.arguments && Object.keys(argValues).length > 0) {
+          try {
+            const env: Record<string, string> = {};
+            const args: string[] = [];
+
+            for (const [, arg] of Object.entries(selectedServer!.arguments)) {
+              const value = argValues[arg.name];
+              if (value === undefined || value === "") continue;
+
+              switch (arg.type) {
+                case "environment":
+                  env[arg.name] = value as string;
+                  break;
+                case "argument":
+                  args.push(`--${arg.name}=${value}`);
+                  break;
+                case "argument_bool":
+                  if (value) args.push(`--${arg.name}`);
+                  break;
+                case "argument_positional":
+                  args.push(value as string);
+                  break;
+              }
+            }
+
+            if (Object.keys(env).length > 0 || args.length > 0) {
+              await window.electronAPI.saveServerSecrets(
+                selectedServer!.id,
+                env,
+                args,
+              );
+            }
+          } catch (err) {
+            console.error("Failed to save secrets:", err);
+            message.warning(
+              "Server added, but failed to save secrets. You can configure them manually in ~/.config/mcpd/secrets.dev.toml",
+            );
+          }
+        }
+
         message.success(
           `Server ${selectedServer!.displayName ?? selectedServer!.name} added successfully`,
         );
@@ -513,77 +564,56 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     }
   };
 
+  const updateArgValue = (name: string, value: string | boolean) => {
+    setArgValues((prev) => ({ ...prev, [name]: value }));
+  };
+
   const renderArgumentField = (key: string, arg: RegistryArgument) => {
-    if (arg.type === "argument_bool") {
-      return (
-        <Form.Item
-          key={key}
-          label={
-            <Space>
-              {arg.name}
-              {arg.required && <Tag color="red">Required</Tag>}
-              <Tag>{arg.type}</Tag>
-            </Space>
-          }
-          help={arg.description}
-        >
-          <Switch
-            checked={argValues[key] === "true"}
-            onChange={(checked) => updateArgValue(key, checked ? "true" : "")}
-          />
-        </Form.Item>
-      );
-    }
+    const typeColor =
+      arg.type === "environment"
+        ? "orange"
+        : arg.type === "argument_bool"
+          ? "cyan"
+          : "default";
 
-    if (arg.type === "environment") {
-      return (
-        <Form.Item
-          key={key}
-          label={
-            <Space>
-              {arg.name}
-              {arg.required && <Tag color="red">Required</Tag>}
-              <Tag color="orange">env</Tag>
-            </Space>
-          }
-          help={arg.description}
-        >
-          <Input.Password
-            value={argValues[key] ?? ""}
-            onChange={(e) => updateArgValue(key, e.target.value)}
-            placeholder={
-              arg.example ? `e.g., ${arg.example}` : `Enter ${arg.name}`
-            }
-            status={
-              arg.required && !(argValues[key] ?? "").trim() ? "error" : ""
-            }
-          />
-        </Form.Item>
-      );
-    }
-
-    // argument, argument_positional, volume.
     return (
-      <Form.Item
-        key={key}
-        label={
+      <div key={key} style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 4 }}>
           <Space>
-            {arg.name}
+            <Text strong>{arg.name}</Text>
             {arg.required && <Tag color="red">Required</Tag>}
-            <Tag>{arg.type}</Tag>
+            <Tag color={typeColor}>{arg.type}</Tag>
           </Space>
-        }
-        help={arg.description}
-      >
-        <Input
-          value={argValues[key] ?? ""}
-          onChange={(e) => updateArgValue(key, e.target.value)}
-          placeholder={
-            arg.example ? `e.g., ${arg.example}` : `Enter value for ${arg.name}`
-          }
-          status={arg.required && !(argValues[key] ?? "").trim() ? "error" : ""}
-        />
-      </Form.Item>
+        </div>
+        <Text
+          type="secondary"
+          style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+        >
+          {arg.description}
+        </Text>
+        {arg.type === "volume" ? (
+          <Input
+            size="small"
+            disabled
+            placeholder="Volume mounts are configured via Docker"
+            value={arg.path || ""}
+          />
+        ) : arg.type === "argument_bool" ? (
+          <Switch
+            checked={!!argValues[arg.name]}
+            onChange={(checked) => updateArgValue(arg.name, checked)}
+            size="small"
+          />
+        ) : (
+          <Input
+            size="small"
+            placeholder={arg.example || `Enter ${arg.name}`}
+            value={(argValues[arg.name] as string) || ""}
+            onChange={(e) => updateArgValue(arg.name, e.target.value)}
+            type={arg.type === "environment" ? "password" : "text"}
+          />
+        )}
+      </div>
     );
   };
 
@@ -619,32 +649,57 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
           <div>
             <Paragraph
               ellipsis={{ rows: 2 }}
-              style={{ marginBottom: 8, fontSize: 13 }}
+              style={{ marginBottom: 4, fontSize: 13 }}
             >
               {server.description}
             </Paragraph>
-            <Space wrap size="small">
-              {server.tools.slice(0, 4).map((tool) => (
-                <Tag key={tool.name} color="geekblue" style={{ fontSize: 11 }}>
-                  {tool.name}
-                </Tag>
-              ))}
-              {server.tools.length > 4 && (
-                <Tag style={{ fontSize: 11 }}>
-                  +{server.tools.length - 4} more
-                </Tag>
+            {server.tools.length > 0 && (
+              <div style={{ marginBottom: 4 }}>
+                <Space wrap size={[4, 4]}>
+                  {server.tools.map((tool) => (
+                    <Tag
+                      key={tool.name}
+                      color="geekblue"
+                      style={{ fontSize: 11, margin: 0 }}
+                    >
+                      {tool.name}
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+            )}
+            <Space wrap size={[4, 4]}>
+              {Object.entries(server.installations).flatMap(
+                ([instKey, inst]) => {
+                  const tags = [
+                    <Tag
+                      key={instKey}
+                      color="green"
+                      style={{ fontSize: 11, margin: 0 }}
+                    >
+                      {inst.runtime}
+                    </Tag>,
+                  ];
+                  if (inst.version) {
+                    tags.push(
+                      <Tag
+                        key={`ver-${instKey}`}
+                        color="blue"
+                        style={{ fontSize: 11, margin: 0 }}
+                      >
+                        v{inst.version}
+                      </Tag>,
+                    );
+                  }
+                  return tags;
+                },
               )}
-              {Object.values(server.installations).map((inst) => (
-                <Tag key={inst.runtime} color="green" style={{ fontSize: 11 }}>
-                  {inst.runtime}
-                </Tag>
-              ))}
               {isValidLicense(server.license) && (
-                <Tag color="purple" style={{ fontSize: 11 }}>
+                <Tag color="purple" style={{ fontSize: 11, margin: 0 }}>
                   {server.license}
                 </Tag>
               )}
-              <Tag color="cyan" style={{ fontSize: 11 }}>
+              <Tag color="cyan" style={{ fontSize: 11, margin: 0 }}>
                 {server._source}
               </Tag>
             </Space>
@@ -844,23 +899,37 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
       )}
 
       {selectedServer && (
-        <Card title="Server Configuration" style={{ marginTop: 16 }}>
+        <Card
+          ref={configCardRef}
+          title="Server Configuration"
+          style={{ marginTop: 16 }}
+        >
           <Form form={form} layout="vertical">
             <Form.Item name="name" label="Server Name">
               <Input disabled />
             </Form.Item>
 
-            <Form.Item name="package" label="Package">
+            <Form.Item
+              name="package"
+              label={
+                <Space>
+                  Package
+                  {selectedRuntime &&
+                    selectedServer.installations[selectedRuntime]?.version && (
+                      <Tag color="blue">
+                        v{selectedServer.installations[selectedRuntime].version}
+                      </Tag>
+                    )}
+                </Space>
+              }
+            >
               {Object.keys(selectedServer.installations).length > 1 ? (
                 <Select
                   value={selectedRuntime}
                   onChange={(value) => {
                     setSelectedRuntime(value);
                     const inst = selectedServer.installations[value];
-                    form.setFieldValue(
-                      "package",
-                      `${inst.runtime}::${inst.package}`,
-                    );
+                    form.setFieldValue("package", buildPackageId(inst));
                   }}
                 >
                   {Object.entries(selectedServer.installations).map(
@@ -900,7 +969,14 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
             {selectedServer.arguments &&
               Object.keys(selectedServer.arguments).length > 0 && (
                 <>
-                  <Divider orientation="left">Arguments</Divider>
+                  <Divider orientation="left">Configuration Values</Divider>
+                  <Text
+                    type="secondary"
+                    style={{ display: "block", marginBottom: 12, fontSize: 12 }}
+                  >
+                    These values will be saved to your secrets file
+                    (~/.config/mcpd/secrets.dev.toml).
+                  </Text>
                   {Object.entries(selectedServer.arguments).map(([key, arg]) =>
                     renderArgumentField(key, arg),
                   )}

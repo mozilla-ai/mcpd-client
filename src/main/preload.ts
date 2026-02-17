@@ -18,6 +18,8 @@ try {
       return ipcRenderer.invoke("daemon:status");
     },
     getDaemonLogs: (lines?: number) => ipcRenderer.invoke("daemon:logs", lines),
+    getDaemonVersion: () => ipcRenderer.invoke("daemon:version"),
+    getAppVersion: () => ipcRenderer.invoke("app:version"),
 
     // Server management
     listServers: () => ipcRenderer.invoke("servers:list"),
@@ -26,6 +28,14 @@ try {
     searchServers: (query: string) =>
       ipcRenderer.invoke("servers:search", query),
     getServerTools: (name: string) => ipcRenderer.invoke("servers:tools", name),
+
+    // Secrets management (runtime env/args).
+    saveServerSecrets: (
+      serverName: string,
+      env: Record<string, string>,
+      args: string[],
+    ) => ipcRenderer.invoke("secrets:save-server", serverName, env, args),
+    getSecretsPath: () => ipcRenderer.invoke("secrets:path") as Promise<string>,
 
     // Tool execution
     callTool: (server: string, tool: string, args: any) =>

@@ -23,8 +23,10 @@ export interface ConfigEntry {
   name: string;
   package: string;
   tools?: string[];
-  env?: Record<string, string>;
-  args?: string[];
+  required_env?: string[];
+  required_args?: string[];
+  required_args_bool?: string[];
+  required_args_positional?: string[];
 }
 
 export interface IpcChannels {
@@ -33,6 +35,8 @@ export interface IpcChannels {
   "daemon:stop": () => Promise<void>;
   "daemon:status": () => Promise<DaemonStatus>;
   "daemon:logs": () => Promise<string[]>;
+  "daemon:version": () => Promise<string>;
+  "app:version": () => Promise<string>;
 
   // Server management
   "servers:list": () => Promise<MCPServer[]>;
@@ -47,6 +51,14 @@ export interface IpcChannels {
   "config:load": () => Promise<ConfigEntry[]>;
   "config:save": (config: ConfigEntry[]) => Promise<void>;
   "config:export": () => Promise<string>;
+
+  // Secrets management
+  "secrets:save-server": (
+    serverName: string,
+    env: Record<string, string>,
+    args: string[],
+  ) => Promise<void>;
+  "secrets:path": () => Promise<string>;
 }
 
 export interface LogEntry {

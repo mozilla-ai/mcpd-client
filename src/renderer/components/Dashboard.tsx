@@ -17,12 +17,21 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalTools, setTotalTools] = useState(0);
+  const [mcpdVersion, setMcpdVersion] = useState<string>("");
 
   useEffect(() => {
     if (daemonStatus.running) {
       loadServers();
+      if (!mcpdVersion) {
+        window.electronAPI
+          .getDaemonVersion()
+          .then(setMcpdVersion)
+          .catch(console.error);
+      }
+    } else {
+      setMcpdVersion("");
     }
-  }, [daemonStatus]);
+  }, [daemonStatus.running]);
 
   const loadServers = async () => {
     setLoading(true);
@@ -76,6 +85,19 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus }) => {
                 ) : (
                   <CloseCircleOutlined />
                 )
+              }
+              suffix={
+                mcpdVersion && mcpdVersion !== "unknown" ? (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(0,0,0,0.45)",
+                      fontWeight: "normal",
+                    }}
+                  >
+                    ({mcpdVersion})
+                  </span>
+                ) : null
               }
             />
           </Card>
