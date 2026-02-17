@@ -48,26 +48,34 @@ interface AddServerModalProps {
   onSuccess: () => void;
 }
 
+// Wrapper that tracks which source a server came from.
+interface TaggedServer extends RegistryServer {
+  _source: string;
+}
+
 interface ServerFilters {
   category?: string;
   official?: boolean;
   license?: string;
   runtime?: string;
+  source?: string;
   tags: string[];
 }
 
 const EMPTY_FILTERS: ServerFilters = { tags: [] };
 
-// Convert the bundled JSON into an array of RegistryServer.
-function registryToArray(data: RegistryData): RegistryServer[] {
-  return Object.values(data).filter((s) => !s.deprecated);
+// Convert the bundled JSON into an array of tagged servers.
+function registryToArray(data: RegistryData, source: string): TaggedServer[] {
+  return Object.values(data)
+    .filter((s) => !s.deprecated)
+    .map((s) => ({ ...s, _source: source }));
 }
 
 // Group servers by their first category.
 function groupByCategory(
-  servers: RegistryServer[],
-): Record<string, RegistryServer[]> {
-  const groups: Record<string, RegistryServer[]> = {};
+  servers: TaggedServer[],
+): Record<string, TaggedServer[]> {
+  const groups: Record<string, TaggedServer[]> = {};
   for (const server of servers) {
     const category = server.categories?.[0] ?? "Other";
     if (!groups[category]) groups[category] = [];
@@ -77,10 +85,7 @@ function groupByCategory(
 }
 
 // Filter servers by a search query against name, description, tags, and tools.
-function filterByQuery(
-  servers: RegistryServer[],
-  query: string,
-): RegistryServer[] {
+function filterByQuery(servers: TaggedServer[], query: string): TaggedServer[] {
   const q = query.toLowerCase();
   return servers.filter(
     (s) =>
@@ -94,9 +99,9 @@ function filterByQuery(
 
 // Apply structured filters to a server list.
 function applyFilters(
-  servers: RegistryServer[],
+  servers: TaggedServer[],
   filters: ServerFilters,
-): RegistryServer[] {
+): TaggedServer[] {
   return servers.filter((s) => {
     if (filters.category && !s.categories?.includes(filters.category)) {
       return false;
@@ -118,6 +123,9 @@ function applyFilters(
     ) {
       return false;
     }
+    if (filters.source && s._source !== filters.source) {
+      return false;
+    }
     if (
       filters.tags.length > 0 &&
       !filters.tags.every((ft) =>
@@ -137,10 +145,11 @@ function isValidLicense(license: string | undefined): license is string {
 }
 
 // Extract unique values from all servers for filter dropdowns.
-function extractFilterOptions(servers: RegistryServer[]) {
+function extractFilterOptions(servers: TaggedServer[]) {
   const categories = new Set<string>();
   const licenses = new Set<string>();
   const runtimes = new Set<string>();
+  const sources = new Set<string>();
   const tags = new Set<string>();
 
   for (const s of servers) {
@@ -149,6 +158,7 @@ function extractFilterOptions(servers: RegistryServer[]) {
     Object.values(s.installations).forEach((inst) =>
       runtimes.add(inst.runtime),
     );
+    sources.add(s._source);
     s.tags?.forEach((t) => tags.add(t));
   }
 
@@ -156,6 +166,7 @@ function extractFilterOptions(servers: RegistryServer[]) {
     categories: Array.from(categories).sort(),
     licenses: Array.from(licenses).sort(),
     runtimes: Array.from(runtimes).sort(),
+    sources: Array.from(sources).sort(),
     tags: Array.from(tags).sort(),
   };
 }
@@ -238,7 +249,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<ServerFilters>(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedServer, setSelectedServer] = useState<RegistryServer | null>(
+  const [selectedServer, setSelectedServer] = useState<TaggedServer | null>(
     null,
   );
   const [selectedRuntime, setSelectedRuntime] = useState<string>("");
@@ -248,14 +259,20 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   const [adding, setAdding] = useState(false);
 
   // Registry data: bundled snapshot, overlaid with live search results.
-  const [liveServers, setLiveServers] = useState<RegistryServer[]>([]);
+  const [liveServers, setLiveServers] = useState<TaggedServer[]>([]);
   const [loadingLive, setLoadingLive] = useState(false);
 
   // Merge bundled + client-specific + live data (live wins on ID conflicts).
   const allServers = useMemo(() => {
-    const bundled = registryToArray(bundledRegistry as RegistryData);
-    const client = registryToArray(clientServers as RegistryData);
-    const merged = new Map<string, RegistryServer>();
+    const bundled = registryToArray(
+      bundledRegistry as RegistryData,
+      "mozilla-ai",
+    );
+    const client = registryToArray(
+      clientServers as RegistryData,
+      "mcpd-client",
+    );
+    const merged = new Map<string, TaggedServer>();
     for (const s of bundled) merged.set(s.id, s);
     for (const s of client) merged.set(s.id, s);
     for (const s of liveServers) merged.set(s.id, s);
@@ -275,6 +292,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     if (filters.official) count++;
     if (filters.license) count++;
     if (filters.runtime) count++;
+    if (filters.source) count++;
     count += filters.tags.length;
     return count;
   }, [filters]);
@@ -325,7 +343,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     try {
       const results = await window.electronAPI.searchServers("*");
       if (Array.isArray(results)) {
-        setLiveServers(results);
+        setLiveServers(results.map((s) => ({ ...s, _source: "mozilla-ai" })));
       }
     } catch {
       // Daemon may not be running; bundled data is sufficient.
@@ -348,7 +366,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     return icons[category] || <CodeOutlined />;
   };
 
-  const selectServer = (server: RegistryServer) => {
+  const selectServer = (server: TaggedServer) => {
     setSelectedServer(server);
 
     // Pick the recommended or first installation.
@@ -558,7 +576,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     );
   };
 
-  const renderServerListItem = (server: RegistryServer) => (
+  const renderServerListItem = (server: TaggedServer) => (
     <List.Item
       onClick={() => selectServer(server)}
       style={{
@@ -615,6 +633,9 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                   {server.license}
                 </Tag>
               )}
+              <Tag color="cyan" style={{ fontSize: 11 }}>
+                {server._source}
+              </Tag>
             </Space>
           </div>
         }
@@ -631,7 +652,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
       }}
     >
       <Row gutter={[8, 8]}>
-        <Col span={6}>
+        <Col span={5}>
           <Select
             placeholder="Category"
             allowClear
@@ -647,7 +668,23 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
             ))}
           </Select>
         </Col>
-        <Col span={5}>
+        <Col span={4}>
+          <Select
+            placeholder="Source"
+            allowClear
+            style={{ width: "100%" }}
+            size="small"
+            value={filters.source}
+            onChange={(v) => updateFilter("source", v)}
+          >
+            {filterOptions.sources.map((s) => (
+              <Select.Option key={s} value={s}>
+                {s}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col span={4}>
           <Select
             placeholder="Runtime"
             allowClear
@@ -663,7 +700,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
             ))}
           </Select>
         </Col>
-        <Col span={5}>
+        <Col span={4}>
           <Select
             placeholder="License"
             allowClear
@@ -679,7 +716,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
             ))}
           </Select>
         </Col>
-        <Col span={5}>
+        <Col span={4}>
           <Select
             placeholder="Tags"
             mode="multiple"
@@ -698,16 +735,14 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
           </Select>
         </Col>
         <Col span={3}>
-          <Space size="small">
-            <Checkbox
-              checked={filters.official ?? false}
-              onChange={(e) =>
-                updateFilter("official", e.target.checked || undefined)
-              }
-            >
-              <Text style={{ fontSize: 12 }}>Official</Text>
-            </Checkbox>
-          </Space>
+          <Checkbox
+            checked={filters.official ?? false}
+            onChange={(e) =>
+              updateFilter("official", e.target.checked || undefined)
+            }
+          >
+            <Text style={{ fontSize: 12 }}>Official</Text>
+          </Checkbox>
         </Col>
       </Row>
       {activeFilterCount > 0 && (
