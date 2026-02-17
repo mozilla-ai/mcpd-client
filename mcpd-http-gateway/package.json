@@ -17,7 +17,7 @@
   },
   "keywords": ["mcp", "mcpd", "http", "gateway", "api", "rest"],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "express": "^4.22.1",
     "cors": "^2.8.5",

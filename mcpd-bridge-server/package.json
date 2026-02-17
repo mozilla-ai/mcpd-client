@@ -16,7 +16,7 @@
   },
   "keywords": ["mcp", "mcpd", "bridge", "ai", "llm", "claude", "anthropic"],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/mozilla-ai/mcpd-client"
