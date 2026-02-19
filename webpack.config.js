@@ -14,10 +14,7 @@ module.exports = [
     },
     plugins: [
       new CopyWebpackPlugin({
-        patterns: [
-          { from: "src/main/icon.png", to: "icon.png" },
-          { from: "resources/", to: "resources/", noErrorOnMissing: true },
-        ],
+        patterns: [{ from: "src/main/icon.png", to: "icon.png" }],
       }),
     ],
     module: {

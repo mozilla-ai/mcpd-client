@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, execSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
@@ -10,6 +10,7 @@ import { DaemonStatus, MCPTool } from "@shared/types";
 export class McpdManager {
   private daemonProcess: ChildProcess | null = null;
   private mcpdClient: McpdClient;
+  private apiEndpoint: string;
   private logPath: string;
   private configPath: string;
   private secretsPath: string;
@@ -17,15 +18,17 @@ export class McpdManager {
   private cachedMcpdVersion: string | null = null;
 
   constructor() {
-    this.mcpdClient = new McpdClient({
-      apiEndpoint: "http://localhost:8090",
-      timeout: 10000,
-    });
-
     // Use proper user data directory for config and logs.
     const userDataPath = app.getPath("userData");
     this.logPath = path.join(userDataPath, "mcpd.log");
     this.configPath = path.join(userDataPath, ".mcpd.toml");
+
+    // Read api.addr from config if set, otherwise use default.
+    this.apiEndpoint = this.readApiEndpoint();
+    this.mcpdClient = new McpdClient({
+      apiEndpoint: this.apiEndpoint,
+      timeout: 10000,
+    });
 
     // Secrets file at the XDG config path used by mcpd in --dev mode.
     const configHome =
@@ -74,10 +77,7 @@ export class McpdManager {
 
       // Validate mcpd exists.
       if (this.mcpdPath !== "mcpd" && !fs.existsSync(this.mcpdPath)) {
-        const isSystemPath = this.mcpdPath.startsWith("/");
-        const errorMsg = isSystemPath
-          ? `mcpd binary not found at ${this.mcpdPath}. This should not happen as mcpd is bundled with the app. Please report this issue.`
-          : `mcpd binary not found at ${this.mcpdPath}. Please install mcpd using: brew install --cask mozilla-ai/tap/mcpd`;
+        const errorMsg = `mcpd binary not found at ${this.mcpdPath}. Install mcpd via Homebrew: brew install mozilla-ai/tap/mcpd`;
         console.error(`[${this.constructor.name}] Binary not found:`, errorMsg);
         logs.push(`[${this.constructor.name}] Binary not found: ${errorMsg}`);
         reject(new Error(errorMsg));
@@ -116,15 +116,8 @@ export class McpdManager {
       ]);
 
       try {
-        // Ensure PATH includes common locations for node/npm/npx.
-        const envPath = process.env.PATH || "";
-        const additionalPaths = [
-          "/usr/local/bin",
-          "/opt/homebrew/bin",
-          "/usr/bin",
-          "/bin",
-          "/usr/sbin",
-          "/sbin",
+        // Build PATH that includes Homebrew, system paths, and node locations.
+        const nodeAdditional: string[] = [
           `${process.env.HOME}/.npm/bin`,
           `${process.env.HOME}/.local/bin`,
           "/usr/local/opt/node/bin",
@@ -135,19 +128,19 @@ export class McpdManager {
 
         // Try to find node installation dynamically.
         try {
-          const { execSync } = require("child_process");
-          const nodePath = execSync("which node", { encoding: "utf-8" }).trim();
+          const nodePath = execSync("which node", {
+            encoding: "utf-8",
+          }).trim();
           if (nodePath) {
-            const nodeDir = path.dirname(nodePath);
-            additionalPaths.push(nodeDir);
+            nodeAdditional.push(path.dirname(nodePath));
           }
         } catch {
           // Ignore if we can't find node.
         }
 
-        // Combine paths, removing duplicates.
-        const pathSet = new Set(envPath.split(":").filter(Boolean));
-        additionalPaths.forEach((p) => pathSet.add(p));
+        const basePath = this.buildFullPath();
+        const pathSet = new Set(basePath.split(":").filter(Boolean));
+        nodeAdditional.forEach((p) => pathSet.add(p));
         const fullPath = Array.from(pathSet).join(":");
 
         this.daemonProcess = spawn(
@@ -346,7 +339,7 @@ export class McpdManager {
       return {
         running: true,
         pid: this.daemonProcess?.pid,
-        apiUrl: "http://localhost:8090",
+        apiUrl: this.apiEndpoint,
         logPath: this.logPath,
       };
     } catch {
@@ -356,7 +349,7 @@ export class McpdManager {
         return {
           running: true,
           pid: this.daemonProcess?.pid,
-          apiUrl: "http://localhost:8090",
+          apiUrl: this.apiEndpoint,
           logPath: this.logPath,
         };
       } catch {
@@ -448,6 +441,21 @@ export class McpdManager {
     const content = fs.readFileSync(this.logPath, "utf-8");
     const allLines = content.split("\n");
     return allLines.slice(-lines);
+  }
+
+  private readApiEndpoint(): string {
+    const defaultEndpoint = "http://localhost:8090";
+    try {
+      if (!fs.existsSync(this.configPath)) return defaultEndpoint;
+      const content = fs.readFileSync(this.configPath, "utf-8");
+      const config = TOML.parse(content) as any;
+      const addr = config?.daemon?.api?.addr;
+      if (!addr) return defaultEndpoint;
+      // addr is "host:port" — prepend http:// if missing.
+      return addr.startsWith("http") ? addr : `http://${addr}`;
+    } catch {
+      return defaultEndpoint;
+    }
   }
 
   private initConfig(): void {
@@ -627,7 +635,7 @@ export class McpdManager {
     if (this.cachedMcpdVersion) return this.cachedMcpdVersion;
 
     return new Promise((resolve) => {
-      const proc = spawn(this.mcpdPath, ["version"], {
+      const proc = spawn(this.mcpdPath, ["--version"], {
         cwd: app.getPath("userData"),
       });
 
@@ -651,7 +659,13 @@ export class McpdManager {
       });
 
       proc.on("exit", (code) => {
-        done(code === 0 && output.trim() ? output.trim() : "unknown");
+        if (code === 0 && output.trim()) {
+          // Parse version from output like "mcpd v0.3.0 (hash), built date".
+          const match = output.match(/v[\d.]+/);
+          done(match ? match[0] : output.trim());
+        } else {
+          done("unknown");
+        }
       });
 
       proc.on("error", () => {
@@ -714,6 +728,10 @@ export class McpdManager {
     return this.secretsPath;
   }
 
+  getApiEndpoint(): string {
+    return this.apiEndpoint;
+  }
+
   async getConfiguredServers(): Promise<any[]> {
     if (!fs.existsSync(this.configPath)) {
       return [];
@@ -724,8 +742,152 @@ export class McpdManager {
     return config.servers || [];
   }
 
+  isMcpdInstalled(): boolean {
+    return this.mcpdPath !== "mcpd" && fs.existsSync(this.mcpdPath);
+  }
+
+  async installMcpd(): Promise<{ success: boolean; message: string }> {
+    return new Promise((resolve) => {
+      const proc = spawn("brew", ["install", "mozilla-ai/tap/mcpd"], {
+        env: {
+          ...process.env,
+          PATH: this.buildFullPath(),
+        },
+      });
+
+      let output = "";
+      proc.stdout?.on("data", (data) => {
+        output += data.toString();
+      });
+      proc.stderr?.on("data", (data) => {
+        output += data.toString();
+      });
+
+      proc.on("error", (err) => {
+        resolve({
+          success: false,
+          message: `Failed to run brew: ${err.message}. Is Homebrew installed?`,
+        });
+      });
+
+      proc.on("exit", (code) => {
+        if (code === 0) {
+          // Refresh the cached path.
+          this.mcpdPath = this.findMcpdPath();
+          this.cachedMcpdVersion = null;
+          resolve({
+            success: true,
+            message: "mcpd installed successfully.",
+          });
+        } else {
+          resolve({
+            success: false,
+            message: `brew install failed (exit ${code}): ${output}`,
+          });
+        }
+      });
+    });
+  }
+
+  async upgradeMcpd(): Promise<{
+    success: boolean;
+    message: string;
+    oldVersion?: string;
+    newVersion?: string;
+  }> {
+    const oldVersion = await this.getMcpdVersion();
+
+    return new Promise((resolve) => {
+      const proc = spawn("brew", ["upgrade", "mozilla-ai/tap/mcpd"], {
+        env: {
+          ...process.env,
+          PATH: this.buildFullPath(),
+        },
+      });
+
+      let output = "";
+      proc.stdout?.on("data", (data) => {
+        output += data.toString();
+      });
+      proc.stderr?.on("data", (data) => {
+        output += data.toString();
+      });
+
+      proc.on("error", (err) => {
+        resolve({
+          success: false,
+          message: `Failed to run brew: ${err.message}. Is Homebrew installed?`,
+        });
+      });
+
+      proc.on("exit", async (code) => {
+        // Refresh cached version regardless.
+        this.cachedMcpdVersion = null;
+        this.mcpdPath = this.findMcpdPath();
+
+        if (code === 0) {
+          const newVersion = await this.getMcpdVersion();
+          resolve({
+            success: true,
+            message:
+              oldVersion === newVersion
+                ? `mcpd is already up to date (${newVersion}).`
+                : `mcpd upgraded from ${oldVersion} to ${newVersion}.`,
+            oldVersion,
+            newVersion,
+          });
+        } else {
+          resolve({
+            success: false,
+            message: `brew upgrade failed (exit ${code}): ${output}`,
+          });
+        }
+      });
+    });
+  }
+
+  async getBrewInfo(): Promise<{
+    version: string;
+    outdated: boolean;
+  }> {
+    try {
+      const output = execSync(
+        "brew info mozilla-ai/tap/mcpd --json=v2 2>/dev/null",
+        {
+          encoding: "utf-8",
+          env: { ...process.env, PATH: this.buildFullPath() },
+          timeout: 10000,
+        },
+      );
+      const info = JSON.parse(output);
+      const cask = info?.casks?.[0];
+      const formula = info?.formulae?.[0];
+      return {
+        version: cask?.version || formula?.versions?.stable || "unknown",
+        outdated: cask?.outdated ?? formula?.outdated ?? false,
+      };
+    } catch {
+      return { version: "unknown", outdated: false };
+    }
+  }
+
+  private buildFullPath(): string {
+    const envPath = process.env.PATH || "";
+    const additionalPaths = [
+      "/usr/local/bin",
+      "/opt/homebrew/bin",
+      "/usr/bin",
+      "/bin",
+      "/usr/sbin",
+      "/sbin",
+    ];
+    const pathSet = new Set(envPath.split(":").filter(Boolean));
+    additionalPaths.forEach((p) => pathSet.add(p));
+    return Array.from(pathSet).join(":");
+  }
+
   private findMcpdPath(): string {
-    // First priority: Check for existing system installation (for developers).
+    // Check well-known Homebrew / system paths.
     const systemPaths = [
       "/opt/homebrew/bin/mcpd",
       "/usr/local/bin/mcpd",
@@ -735,7 +897,7 @@ export class McpdManager {
     for (const mcpdPath of systemPaths) {
       try {
         if (fs.existsSync(mcpdPath)) {
-          console.log(`Found existing mcpd installation at: ${mcpdPath}`);
+          console.log(`Found mcpd at: ${mcpdPath}`);
           return mcpdPath;
         }
       } catch {
@@ -743,86 +905,7 @@ export class McpdManager {
       }
     }
 
-    // Second priority: Use bundled mcpd binary.
-    const bundledPath = this.getBundledMcpdPath();
-    if (bundledPath && fs.existsSync(bundledPath)) {
-      console.log(`Using bundled mcpd at: ${bundledPath}`);
-      return bundledPath;
-    }
-
-    console.warn(
-      "mcpd not found in system paths or bundled, falling back to PATH lookup",
-    );
+    console.warn("mcpd not found in system paths, falling back to PATH lookup");
     return "mcpd";
-  }
-
-  private getBundledMcpdPath(): string | null {
-    try {
-      // Determine platform-specific binary name.
-      const platform = process.platform;
-      const arch = process.arch;
-      let binaryName = "mcpd";
-
-      if (platform === "darwin") {
-        binaryName = arch === "arm64" ? "mcpd-darwin-arm64" : "mcpd-darwin-x64";
-      } else if (platform === "win32") {
-        binaryName = "mcpd.exe";
-      } else if (platform === "linux") {
-        binaryName = "mcpd-linux";
-      }
-
-      // In development, look in dist/resources.
-      const devPath = path.join(__dirname, "resources", binaryName);
-      if (fs.existsSync(devPath)) {
-        console.log(`Found bundled mcpd in dev path: ${devPath}`);
-        return devPath;
-      }
-
-      // In packaged app, check if we have process.resourcesPath.
-      if (typeof process.resourcesPath !== "undefined") {
-        const prodPath = path.join(
-          process.resourcesPath,
-          "resources",
-          binaryName,
-        );
-        if (fs.existsSync(prodPath)) {
-          console.log(`Found bundled mcpd in prod path: ${prodPath}`);
-          return prodPath;
-        }
-
-        const altProdPath = path.join(process.resourcesPath, binaryName);
-        if (fs.existsSync(altProdPath)) {
-          console.log(`Found bundled mcpd in alt prod path: ${altProdPath}`);
-          return altProdPath;
-        }
-
-        const asarPath = path.join(
-          process.resourcesPath,
-          "app.asar",
-          "dist",
-          "resources",
-          binaryName,
-        );
-        if (fs.existsSync(asarPath)) {
-          console.log(`Found bundled mcpd in asar path: ${asarPath}`);
-          return asarPath;
-        }
-
-        console.log(`Bundled mcpd not found in packaged app. Searched paths:`, [
-          prodPath,
-          altProdPath,
-          asarPath,
-        ]);
-      } else {
-        console.log(
-          `process.resourcesPath not available, app might not be packaged`,
-        );
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error finding bundled mcpd:", error);
-      return null;
-    }
   }
 }

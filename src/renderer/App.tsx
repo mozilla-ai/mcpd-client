@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Layout, Menu, Badge, Tooltip } from "antd";
+import { Layout, Menu, Badge, Tooltip, message } from "antd";
 import {
+  CheckCircleOutlined,
   CloudServerOutlined,
   SettingOutlined,
   CodeOutlined,
   DashboardOutlined,
   FileTextOutlined,
+  LoadingOutlined,
   PoweroffOutlined,
   RocketOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import Dashboard from "./components/Dashboard";
 import ServerManager from "./components/ServerManager";
@@ -28,6 +31,16 @@ declare global {
       getDaemonLogs: (lines?: number) => Promise<string[]>;
       getDaemonVersion: () => Promise<string>;
       getAppVersion: () => Promise<string>;
+      isMcpdInstalled: () => Promise<boolean>;
+      installMcpd: () => Promise<{ success: boolean; message: string }>;
+      upgradeMcpd: () => Promise<{
+        success: boolean;
+        message: string;
+        oldVersion?: string;
+        newVersion?: string;
+      }>;
+      getBrewInfo: () => Promise<{ version: string; outdated: boolean }>;
+      openExternal: (url: string) => Promise<void>;
       listServers: () => Promise<any[]>;
       addServer: (server: any) => Promise<void>;
       removeServer: (name: string) => Promise<void>;
@@ -59,13 +72,20 @@ declare global {
 const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("dashboard");
+  const [toolsServer, setToolsServer] = useState<string>("");
   const [daemonStatus, setDaemonStatus] = useState<DaemonStatus>({
     running: false,
   });
   const [appVersion, setAppVersion] = useState<string>("");
+  const [mcpdInstalled, setMcpdInstalled] = useState<boolean | null>(null);
+  const [mcpdVersion, setMcpdVersion] = useState<string>("");
+  const [daemonToggling, setDaemonToggling] = useState(false);
+  const [brewOutdated, setBrewOutdated] = useState(false);
+  const [brewLatestVersion, setBrewLatestVersion] = useState<string>("");
 
   useEffect(() => {
     checkDaemonStatus();
+    checkMcpdInstalled();
     const interval = setInterval(checkDaemonStatus, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -73,6 +93,38 @@ const App: React.FC = () => {
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setAppVersion).catch(console.error);
   }, []);
+
+  // Fetch mcpd version and brew info when install state changes.
+  useEffect(() => {
+    if (mcpdInstalled) {
+      window.electronAPI
+        .getDaemonVersion()
+        .then((v) => {
+          if (v && v !== "unknown") setMcpdVersion(v);
+        })
+        .catch(console.error);
+      window.electronAPI
+        .getBrewInfo()
+        .then((info) => {
+          setBrewOutdated(info.outdated);
+          if (info.version !== "unknown") setBrewLatestVersion(info.version);
+        })
+        .catch(console.error);
+    } else {
+      setMcpdVersion("");
+      setBrewOutdated(false);
+      setBrewLatestVersion("");
+    }
+  }, [mcpdInstalled, daemonStatus.running]);
+
+  const checkMcpdInstalled = async () => {
+    try {
+      const installed = await window.electronAPI.isMcpdInstalled();
+      setMcpdInstalled(installed);
+    } catch (error) {
+      console.error("Failed to check mcpd installation:", error);
+    }
+  };
 
   const checkDaemonStatus = async () => {
     try {
@@ -83,92 +135,56 @@ const App: React.FC = () => {
     }
   };
 
-  const testIPC = async () => {
-    console.log("Testing IPC...");
-    console.log("window.electronAPI:", (window as any).electronAPI);
-    console.log("window.preloadTest:", (window as any).preloadTest);
-
+  const toggleDaemon = async () => {
+    setDaemonToggling(true);
     try {
-      // Test if preload script ran at all
-      const preloadTest = (window as any).preloadTest;
-      if (preloadTest) {
-        console.log("Preload test object found:", preloadTest);
-      }
-
-      // Test if electronAPI exists
-      const electronAPI = (window as any).electronAPI;
-      if (electronAPI) {
-        console.log("electronAPI found, testing test function...");
-        if (electronAPI.test) {
-          const testResult = electronAPI.test();
-          console.log("electronAPI.test() result:", testResult);
-        }
+      if (daemonStatus.running) {
+        await window.electronAPI.stopDaemon();
       } else {
-        console.error("electronAPI not found on window object");
+        const startPromise = window.electronAPI.startDaemon();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Daemon failed to start within 10 seconds")),
+            10000,
+          ),
+        );
+        await Promise.race([startPromise, timeoutPromise]);
       }
-
-      const result = electronAPI
-        ? "electronAPI available"
-        : "electronAPI not available";
-      console.log("IPC test result:", result);
-    } catch (error) {
-      console.error("IPC test error:", error);
+      await checkDaemonStatus();
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      message.error(msg);
+    } finally {
+      setDaemonToggling(false);
     }
   };
 
-  const toggleDaemon = async () => {
-    console.log("toggleDaemon called, current status:", daemonStatus);
-
-    // First test IPC
-    await testIPC();
-
-    try {
-      if (daemonStatus.running) {
-        console.log("Stopping daemon...");
-        await window.electronAPI.stopDaemon();
-        console.log("Daemon stopped");
-      } else {
-        console.log("Starting daemon...");
-        try {
-          // Add a timeout to prevent indefinite hanging
-          const startPromise = window.electronAPI.startDaemon();
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Daemon start timeout after 10 seconds")),
-              10000,
-            ),
-          );
-
-          const result = await Promise.race([startPromise, timeoutPromise]);
-          console.log("Start daemon result:", result);
-        } catch (err) {
-          console.error("Failed to start daemon:", err);
-          throw err;
-        }
-      }
-      console.log("Checking daemon status after toggle...");
-      await checkDaemonStatus();
-    } catch (error) {
-      console.error("Failed to toggle daemon:", error);
-    }
+  const navigateToTools = (serverName: string) => {
+    setToolsServer(serverName);
+    setSelectedMenu("tools");
   };
 
   const renderContent = () => {
     switch (selectedMenu) {
       case "dashboard":
-        return <Dashboard daemonStatus={daemonStatus} />;
+        return (
+          <Dashboard daemonStatus={daemonStatus} onNavigate={setSelectedMenu} />
+        );
       case "connect":
         return <QuickSetup />;
       case "servers":
-        return <ServerManager />;
+        return <ServerManager onViewTools={navigateToTools} />;
       case "tools":
-        return <ToolExplorer />;
+        return <ToolExplorer initialServer={toolsServer} />;
       case "config":
         return <ConfigEditor />;
       case "logs":
         return <LogViewer />;
       default:
-        return <Dashboard daemonStatus={daemonStatus} />;
+        return (
+          <Dashboard daemonStatus={daemonStatus} onNavigate={setSelectedMenu} />
+        );
     }
   };
 
@@ -236,22 +252,63 @@ const App: React.FC = () => {
               : selectedMenu.charAt(0).toUpperCase() + selectedMenu.slice(1)}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {mcpdInstalled !== null && (
+              <Tooltip
+                title={
+                  !mcpdInstalled
+                    ? "Install mcpd via: brew install mozilla-ai/tap/mcpd"
+                    : brewOutdated && brewLatestVersion
+                      ? `Upgrade available (${mcpdVersion} \u2192 v${brewLatestVersion})`
+                      : "Latest version installed"
+                }
+              >
+                <span style={{ color: "#fff", fontSize: 13 }}>
+                  {mcpdInstalled ? (
+                    <>
+                      {brewOutdated ? (
+                        <WarningOutlined style={{ color: "#faad14" }} />
+                      ) : (
+                        <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                      )}{" "}
+                      mcpd{mcpdVersion ? ` ${mcpdVersion}` : ""}
+                    </>
+                  ) : (
+                    <>
+                      <WarningOutlined style={{ color: "#faad14" }} /> mcpd not
+                      found
+                    </>
+                  )}
+                </span>
+              </Tooltip>
+            )}
             <Badge
               status={daemonStatus.running ? "success" : "error"}
               text={daemonStatus.running ? "Daemon Running" : "Daemon Stopped"}
               style={{ color: "#fff" }}
             />
             <Tooltip
-              title={daemonStatus.running ? "Stop Daemon" : "Start Daemon"}
+              title={
+                daemonToggling
+                  ? daemonStatus.running
+                    ? "Stopping\u2026"
+                    : "Starting\u2026"
+                  : daemonStatus.running
+                    ? "Stop Daemon"
+                    : "Start Daemon"
+              }
             >
-              <PoweroffOutlined
-                onClick={toggleDaemon}
-                style={{
-                  fontSize: 20,
-                  color: daemonStatus.running ? "#52c41a" : "#ff4d4f",
-                  cursor: "pointer",
-                }}
-              />
+              {daemonToggling ? (
+                <LoadingOutlined style={{ fontSize: 20, color: "#faad14" }} />
+              ) : (
+                <PoweroffOutlined
+                  onClick={toggleDaemon}
+                  style={{
+                    fontSize: 20,
+                    color: daemonStatus.running ? "#52c41a" : "#ff4d4f",
+                    cursor: "pointer",
+                  }}
+                />
+              )}
             </Tooltip>
           </div>
         </Header>

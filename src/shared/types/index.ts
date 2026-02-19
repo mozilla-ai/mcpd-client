@@ -36,6 +36,15 @@ export interface IpcChannels {
   "daemon:status": () => Promise<DaemonStatus>;
   "daemon:logs": () => Promise<string[]>;
   "daemon:version": () => Promise<string>;
+  "daemon:mcpd-installed": () => Promise<boolean>;
+  "daemon:install-mcpd": () => Promise<{ success: boolean; message: string }>;
+  "daemon:upgrade-mcpd": () => Promise<{
+    success: boolean;
+    message: string;
+    oldVersion?: string;
+    newVersion?: string;
+  }>;
+  "daemon:brew-info": () => Promise<{ version: string; outdated: boolean }>;
   "app:version": () => Promise<string>;
 
   // Server management

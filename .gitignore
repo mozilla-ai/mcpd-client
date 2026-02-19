@@ -30,6 +30,9 @@ release/
 mcpd.log
 .mcpd-client/
 
+# Bundled binaries
+resources/
+
 # Electron
 out/
 *.provisionprofile
