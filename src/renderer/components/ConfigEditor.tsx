@@ -1,19 +1,37 @@
 import React, { useState, useEffect } from "react";
-import { Card, Button, Space, message, Alert, Input } from "antd";
+import { Card, Button, Space, message, Alert } from "antd";
 import {
   SaveOutlined,
   DownloadOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import MonacoEditor from "@monaco-editor/react";
-
-const { TextArea } = Input;
+import MonacoEditor, { useMonaco } from "@monaco-editor/react";
 
 const ConfigEditor: React.FC = () => {
+  const monaco = useMonaco();
+
+  useEffect(() => {
+    if (!monaco) return;
+    monaco.languages.register({ id: "toml" });
+    monaco.languages.setMonarchTokensProvider("toml", {
+      tokenizer: {
+        root: [
+          [/#.*$/, "comment"],
+          [/\[\[[\w.]+\]\]/, "type.identifier"],
+          [/\[[\w.]+\]/, "type.identifier"],
+          [/[a-zA-Z_][\w]*(?=\s*=)/, "variable"],
+          [/=/, "delimiter"],
+          [/"[^"]*"/, "string"],
+          [/'[^']*'/, "string"],
+          [/true|false/, "keyword"],
+          [/[+-]?\d+(\.\d+)?/, "number"],
+        ],
+      },
+    });
+  }, [monaco]);
   const [configContent, setConfigContent] = useState<string>("");
   const [originalContent, setOriginalContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [useTextArea, setUseTextArea] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -105,67 +123,28 @@ const ConfigEditor: React.FC = () => {
           <div style={{ padding: 20, textAlign: "center" }}>
             Loading configuration...
           </div>
-        ) : useTextArea ? (
-          <>
-            <TextArea
-              value={configContent}
-              onChange={(e) => setConfigContent(e.target.value)}
-              style={{
-                minHeight: 600,
-                fontFamily: "monospace",
-                fontSize: 14,
-                backgroundColor: "#1e1e1e",
-                color: "#d4d4d4",
-              }}
-            />
-            <Button
-              size="small"
-              onClick={() => setUseTextArea(false)}
-              style={{ marginTop: 10 }}
-            >
-              Try Monaco Editor
-            </Button>
-          </>
         ) : (
-          <>
-            <MonacoEditor
-              height="600px"
-              language="toml"
-              theme="vs-dark"
-              value={configContent}
-              onChange={(value) => setConfigContent(value || "")}
-              loading={loading}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                wordWrap: "on",
-                formatOnPaste: true,
-                formatOnType: true,
-              }}
-            />
-            {/* Debug info - remove this after fixing */}
-            <div
-              style={{
-                marginTop: 10,
-                padding: 10,
-                background: "#2a2a2a",
-                borderRadius: 4,
-                fontSize: 12,
-                color: "#888",
-              }}
-            >
-              <strong>Debug Info:</strong> Config loaded with{" "}
-              {configContent.length} characters
-              {configContent.length === 0 && " (Content is empty!)"}
-              <Button
-                size="small"
-                onClick={() => setUseTextArea(true)}
-                style={{ marginLeft: 10 }}
-              >
-                Use Simple Editor
-              </Button>
-            </div>
-          </>
+          <MonacoEditor
+            height="calc(100vh - 370px)"
+            language="toml"
+            theme="vs-dark"
+            value={configContent}
+            onChange={(value) => setConfigContent(value || "")}
+            loading={loading}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              lineNumbers: "on",
+              wordWrap: "on",
+              scrollBeyondLastLine: false,
+              scrollbar: {
+                vertical: "auto",
+                horizontal: "auto",
+              },
+              formatOnPaste: true,
+              formatOnType: true,
+            }}
+          />
         )}
       </Card>
 
