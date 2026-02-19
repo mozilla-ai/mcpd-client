@@ -16,9 +16,15 @@ import MonacoEditor from "@monaco-editor/react";
 
 const { Text, Paragraph } = Typography;
 
-const ToolExplorer: React.FC = () => {
+interface ToolExplorerProps {
+  initialServer?: string;
+}
+
+const ToolExplorer: React.FC<ToolExplorerProps> = ({ initialServer }) => {
   const [servers, setServers] = useState<MCPServer[]>([]);
-  const [selectedServer, setSelectedServer] = useState<string>("");
+  const [selectedServer, setSelectedServer] = useState<string>(
+    initialServer || "",
+  );
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [selectedTool, setSelectedTool] = useState<MCPTool | null>(null);
   const [toolArgs, setToolArgs] = useState<string>("{}");
@@ -29,6 +35,13 @@ const ToolExplorer: React.FC = () => {
   useEffect(() => {
     loadServers();
   }, []);
+
+  // Update selection when navigated from another tab.
+  useEffect(() => {
+    if (initialServer) {
+      setSelectedServer(initialServer);
+    }
+  }, [initialServer]);
 
   useEffect(() => {
     if (selectedServer) {
