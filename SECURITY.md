@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-We at [Mozilla AI](https://www.mozilla.ai/) take the security of our projects seriously. We appreciate your efforts to responsibly disclose security vulnerabilities. 
+We at [Mozilla AI](https://www.mozilla.ai/) take the security of our projects seriously. We appreciate your efforts to responsibly disclose security vulnerabilities.
 
 This document outlines the process for reporting vulnerabilities in `mcpd-client`.
 
@@ -11,7 +11,7 @@ This document outlines the process for reporting vulnerabilities in `mcpd-client
 The following versions are currently supported for security updates:
 
 | Version | Supported          |
-|---------|--------------------|
+| ------- | ------------------ |
 | `0.x.x` | :white_check_mark: |
 
 **Please ensure you are using a supported version when reporting a vulnerability.**
@@ -33,15 +33,15 @@ Please include the following information in your report:
 
 ### Our Commitment
 
-* We will acknowledge receipt of your report within 2 business days.
-* We will investigate the report promptly and provide an initial assessment within 5 business days.
-* We will keep you informed of our progress throughout the vulnerability resolution process.
-* Once the vulnerability is patched, we will notify you and, with your permission, include your name in our release notes or security advisory as a thank you for your responsible disclosure.
-* We follow a 'coordinated disclosure' approach, meaning we aim to have a fix available before public disclosure.
+- We will acknowledge receipt of your report within 2 business days.
+- We will investigate the report promptly and provide an initial assessment within 5 business days.
+- We will keep you informed of our progress throughout the vulnerability resolution process.
+- Once the vulnerability is patched, we will notify you and, with your permission, include your name in our release notes or security advisory as a thank you for your responsible disclosure.
+- We follow a 'coordinated disclosure' approach, meaning we aim to have a fix available before public disclosure.
 
 ### Public Disclosure
 
-Please allow us a reasonable amount of time to address the vulnerability before public disclosure. We request that you do not disclose the vulnerability publicly until we have confirmed a fix is available and have agreed on a disclosure timeline. 
+Please allow us a reasonable amount of time to address the vulnerability before public disclosure. We request that you do not disclose the vulnerability publicly until we have confirmed a fix is available and have agreed on a disclosure timeline.
 
 Our typical disclosure timeline for critical issues is up to 30 days from the initial report, but this may vary depending on complexity.
 
