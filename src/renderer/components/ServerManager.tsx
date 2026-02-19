@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Table,
@@ -14,45 +14,19 @@ import {
   DeleteOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { MCPServer, RegistryData } from "@shared/types";
+import { MCPServer } from "@shared/types";
 import AddServerModal from "./AddServerModal";
-
-import bundledRegistry from "../data/registry.json";
-import clientServers from "../data/client-servers.json";
 
 const { Text } = Typography;
 
-// Build a lookup from server name/id to its recommended installation version.
-function buildVersionMap(
-  ...registries: RegistryData[]
-): Record<string, string> {
-  const map: Record<string, string> = {};
-  // Earlier registries take precedence (bundled mozilla-ai wins over client extras).
-  for (const registry of registries) {
-    for (const [id, server] of Object.entries(registry)) {
-      if (map[id]) continue;
-      const installations = Object.values(server.installations);
-      const recommended = installations.find((i) => i.recommended);
-      const version = (recommended ?? installations[0])?.version;
-      if (version) map[id] = version;
-    }
-  }
-  return map;
+interface ServerManagerProps {
+  onViewTools?: (serverName: string) => void;
 }
 
-const ServerManager: React.FC = () => {
+const ServerManager: React.FC<ServerManagerProps> = ({ onViewTools }) => {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
-
-  const versionMap = useMemo(
-    () =>
-      buildVersionMap(
-        bundledRegistry as RegistryData,
-        clientServers as RegistryData,
-      ),
-    [],
-  );
 
   useEffect(() => {
     loadServers();
@@ -102,28 +76,59 @@ const ServerManager: React.FC = () => {
     }
   };
 
+  // Parse "runtime::package@version" into its parts.
+  const parsePackage = (
+    pkg: string,
+  ): { runtime: string; name: string; version: string } => {
+    if (!pkg) return { runtime: "", name: "", version: "" };
+    const runtimeSep = pkg.indexOf("::");
+    const runtime = runtimeSep >= 0 ? pkg.slice(0, runtimeSep) : "";
+    const rest = runtimeSep >= 0 ? pkg.slice(runtimeSep + 2) : pkg;
+    const atIdx = rest.lastIndexOf("@");
+    // atIdx > 0 avoids splitting on the @ in scoped packages like @org/pkg.
+    const name = atIdx > 0 ? rest.slice(0, atIdx) : rest;
+    const version = atIdx > 0 ? rest.slice(atIdx + 1) : "";
+    return { runtime, name, version };
+  };
+
   const columns = [
     {
       title: "Name",
       dataIndex: "name",
       key: "name",
-      render: (text: string) => <strong>{text}</strong>,
+      render: (text: string) =>
+        onViewTools ? (
+          <a onClick={() => onViewTools(text)}>{text}</a>
+        ) : (
+          <strong>{text}</strong>
+        ),
+    },
+    {
+      title: "Runtime",
+      dataIndex: "package",
+      key: "runtime",
+      render: (pkg: string) => {
+        const { runtime } = parsePackage(pkg);
+        return runtime ? <Tag>{runtime}</Tag> : <Text type="secondary">—</Text>;
+      },
     },
     {
       title: "Package",
       dataIndex: "package",
       key: "package",
-      render: (text: string) => text || "N/A",
+      render: (pkg: string) => {
+        const { name } = parsePackage(pkg);
+        return name || <Text type="secondary">—</Text>;
+      },
     },
     {
       title: "Version",
-      // Looks up by server name which matches the registry ID set during browse-mode add.
-      dataIndex: "name",
+      dataIndex: "package",
       key: "version",
-      render: (name: string) => {
-        const version = versionMap[name];
+      render: (pkg: string) => {
+        const { version } = parsePackage(pkg);
         return version ? (
-          <Tag color="blue">v{version}</Tag>
+          <Tag color="blue">{version}</Tag>
         ) : (
           <Text type="secondary">—</Text>
         );
@@ -161,7 +166,14 @@ const ServerManager: React.FC = () => {
       title: "Tools",
       dataIndex: "tools",
       key: "tools",
-      render: (tools: string[]) => tools?.length || 0,
+      render: (tools: string[], record: MCPServer) => {
+        const count = tools?.length || 0;
+        return onViewTools && count > 0 ? (
+          <a onClick={() => onViewTools(record.name)}>{count}</a>
+        ) : (
+          count
+        );
+      },
     },
     {
       title: "Actions",

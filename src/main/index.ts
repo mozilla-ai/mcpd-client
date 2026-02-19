@@ -132,6 +132,14 @@ if (!gotTheLock) {
       });
     });
 
+    // Set the dock icon on macOS (electron-builder handles packaged builds, but dev mode needs this).
+    if (process.platform === "darwin" && app.dock) {
+      const dockIcon = nativeImage.createFromPath(
+        path.join(__dirname, "icon.png"),
+      );
+      app.dock.setIcon(dockIcon);
+    }
+
     mcpdManager = new McpdManager();
     setupIPC(mcpdManager);
     createWindow();

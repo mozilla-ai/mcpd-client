@@ -1,5 +1,6 @@
 {
   "name": "@mozilla-ai/mcpd-client",
+  "productName": "mcpd Client",
   "version": "0.1.0",
   "description": "",
   "main": "dist/main.js",
@@ -44,15 +45,6 @@
       "dist/**/*",
       "node_modules/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "resources/",
-        "to": "resources/",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

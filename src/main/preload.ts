@@ -18,8 +18,27 @@ try {
       return ipcRenderer.invoke("daemon:status");
     },
     getDaemonLogs: (lines?: number) => ipcRenderer.invoke("daemon:logs", lines),
-    getDaemonVersion: () => ipcRenderer.invoke("daemon:version"),
+    getMcpdVersion: () => ipcRenderer.invoke("daemon:version"),
     getAppVersion: () => ipcRenderer.invoke("app:version"),
+    isMcpdInstalled: () =>
+      ipcRenderer.invoke("daemon:mcpd-installed") as Promise<boolean>,
+    installMcpd: () =>
+      ipcRenderer.invoke("daemon:install-mcpd") as Promise<{
+        success: boolean;
+        message: string;
+      }>,
+    upgradeMcpd: () =>
+      ipcRenderer.invoke("daemon:upgrade-mcpd") as Promise<{
+        success: boolean;
+        message: string;
+        oldVersion?: string;
+        newVersion?: string;
+      }>,
+    getBrewInfo: () =>
+      ipcRenderer.invoke("daemon:brew-info") as Promise<{
+        version: string;
+        outdated: boolean;
+      }>,
 
     // Server management
     listServers: () => ipcRenderer.invoke("servers:list"),
@@ -53,6 +72,10 @@ try {
       ipcRenderer.invoke("connect:setup-http", serverName),
     setupCursor: (serverName: string) =>
       ipcRenderer.invoke("connect:setup-cursor", serverName),
+
+    // Open URL in system browser.
+    openExternal: (url: string) =>
+      ipcRenderer.invoke("shell:open-external", url),
 
     // Test function
     test: () => {

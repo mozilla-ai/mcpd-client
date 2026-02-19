@@ -1,4 +1,4 @@
-import { app, ipcMain } from "electron";
+import { app, ipcMain, shell } from "electron";
 import { McpdManager } from "./mcpd-manager";
 
 export function setupIPC(mcpdManager: McpdManager) {
@@ -43,6 +43,33 @@ export function setupIPC(mcpdManager: McpdManager) {
 
   ipcMain.handle("app:version", () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle("shell:open-external", async (_, url: string) => {
+    // Only allow http/https URLs to prevent arbitrary scheme execution.
+    const parsed = new URL(url);
+    if (!["https:", "http:"].includes(parsed.protocol)) {
+      throw new Error(
+        `Blocked URL with disallowed protocol: ${parsed.protocol}`,
+      );
+    }
+    await shell.openExternal(url);
+  });
+
+  ipcMain.handle("daemon:mcpd-installed", () => {
+    return mcpdManager.isMcpdInstalled();
+  });
+
+  ipcMain.handle("daemon:install-mcpd", async () => {
+    return await mcpdManager.installMcpd();
+  });
+
+  ipcMain.handle("daemon:upgrade-mcpd", async () => {
+    return await mcpdManager.upgradeMcpd();
+  });
+
+  ipcMain.handle("daemon:brew-info", async () => {
+    return await mcpdManager.getBrewInfo();
   });
 
   // Server management
@@ -155,7 +182,7 @@ export function setupIPC(mcpdManager: McpdManager) {
       command: "npx",
       args: ["@mozilla-ai/mcpd-proxy"],
       env: {
-        MCPD_ADDR: "http://localhost:8090",
+        MCPD_ADDR: mcpdManager.getApiEndpoint(),
       },
     };
 
@@ -175,9 +202,8 @@ export function setupIPC(mcpdManager: McpdManager) {
     // No separate gateway process is needed.
     return {
       success: true,
-      url: `http://localhost:8090/api/v1/servers/${serverName}/tools`,
-      message:
-        "Use the mcpd HTTP API directly at http://localhost:8090. For STDIO-based IDE connections, use npx @mozilla-ai/mcpd-proxy.",
+      url: `${mcpdManager.getApiEndpoint()}/api/v1/servers/${serverName}/tools`,
+      message: `Use the mcpd HTTP API directly at ${mcpdManager.getApiEndpoint()}. For STDIO-based IDE connections, use npx @mozilla-ai/mcpd-proxy.`,
     };
   });
 
@@ -201,7 +227,7 @@ export function setupIPC(mcpdManager: McpdManager) {
       command: "npx",
       args: ["@mozilla-ai/mcpd-proxy"],
       env: {
-        MCPD_ADDR: "http://localhost:8090",
+        MCPD_ADDR: mcpdManager.getApiEndpoint(),
       },
     };
 
