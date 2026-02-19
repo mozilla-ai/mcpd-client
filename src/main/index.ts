@@ -132,6 +132,14 @@ if (!gotTheLock) {
       });
     });
 
+    // Set the dock icon on macOS (dev mode uses the default Electron icon otherwise).
+    if (process.platform === "darwin" && app.dock) {
+      const dockIcon = nativeImage.createFromPath(
+        path.join(__dirname, "icon.png"),
+      );
+      app.dock.setIcon(dockIcon);
+    }
+
     mcpdManager = new McpdManager();
     setupIPC(mcpdManager);
     createWindow();
