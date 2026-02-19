@@ -1,8 +1,16 @@
 # Deployment Guide for mcpd Client
 
+## Prerequisites
+
+mcpd must be installed via Homebrew:
+
+```bash
+brew install mozilla-ai/tap/mcpd
+```
+
 ## Accessing MCP Servers
 
-mcpd exposes an HTTP API directly on port 8090. There is no need for a separate gateway process.
+mcpd exposes an HTTP API on port 8090 by default (configurable via `daemon.api.addr` in `.mcpd.toml`). There is no need for a separate gateway process.
 
 ### Local Access
 

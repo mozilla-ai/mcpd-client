@@ -32,11 +32,11 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
 - **Tool Explorer**: Browse and test MCP tools with live execution
 - **Configuration Editor**: Edit `.mcpd.toml` files with syntax highlighting
 - **Real-time Logs**: Monitor daemon and server logs with filtering and search
-- **System Tray Integration**: Run in background with quick access controls
+- **Homebrew Integration**: Detect, install, and upgrade mcpd directly from the app
 - **Dashboard**: Overview of system status, active servers, and available tools
 - **Multiple Access Methods**:
   - STDIO via [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) for IDE integrations (Claude Desktop, Cursor, etc.)
-  - Direct mcpd HTTP API on port 8090
+  - Direct mcpd HTTP API (default port 8090, configurable via `daemon.api.addr` in `.mcpd.toml`)
   - [`@mozilla-ai/mcpd`](https://github.com/mozilla-ai/mcpd-sdk-javascript) JavaScript/TypeScript SDK
   - Cloudflare Tunnels for external access (no account needed)
 - **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
@@ -44,8 +44,11 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
 
 ## Prerequisites
 
-- Node.js 16+ and npm
-- mcpd installed (`brew install mozilla-ai/tap/mcpd` or from [GitHub releases](https://github.com/mozilla-ai/mcpd/releases))
+- **[mcpd](https://github.com/mozilla-ai/mcpd)** — the MCP daemon (required):
+  ```bash
+  brew install mozilla-ai/tap/mcpd
+  ```
+- Node.js 18+ and npm
 - npx (for JavaScript MCP servers)
 - uvx (for Python MCP servers)
 
@@ -97,7 +100,7 @@ The application consists of:
 - **IDE Integrations**: Uses [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) for STDIO-based connections
 
 ```
-                    mcpd Daemon (port 8090)
+                    mcpd Daemon (HTTP API)
                            |
          +-----------------+-----------------+
          |                 |                 |
