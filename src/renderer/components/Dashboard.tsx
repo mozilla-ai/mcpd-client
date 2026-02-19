@@ -39,35 +39,58 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus, onNavigate }) => {
   const [brewLatestVersion, setBrewLatestVersion] = useState<string>("");
 
   useEffect(() => {
-    // Check whether mcpd is installed on mount.
-    window.electronAPI
-      .isMcpdInstalled()
-      .then(setMcpdInstalled)
-      .catch(console.error);
+    const checkInstalled = async () => {
+      try {
+        const installed = await window.electronAPI.isMcpdInstalled();
+        setMcpdInstalled(installed);
+      } catch (err) {
+        console.error("Failed to check mcpd installation:", err);
+      }
+    };
+    checkInstalled();
   }, []);
 
+  // Check for brew updates whenever mcpd is installed (independent of daemon).
   useEffect(() => {
-    if (daemonStatus.running) {
-      loadServers();
-      if (!mcpdVersion) {
-        window.electronAPI
-          .getDaemonVersion()
-          .then((v) => {
-            setMcpdVersion(v);
-            // Check for updates via brew.
-            window.electronAPI
-              .getBrewInfo()
-              .then((info) => {
-                setBrewOutdated(info.outdated);
-                if (info.version !== "unknown")
-                  setBrewLatestVersion(info.version);
-              })
-              .catch(console.error);
-          })
-          .catch(console.error);
+    if (!mcpdInstalled) {
+      setBrewOutdated(false);
+      setBrewLatestVersion("");
+      return;
+    }
+
+    const checkBrewUpdates = async () => {
+      try {
+        const info = await window.electronAPI.getBrewInfo();
+        setBrewOutdated(info.outdated);
+        if (info.version !== "unknown") {
+          setBrewLatestVersion(info.version);
+        }
+      } catch (err) {
+        console.error("Failed to fetch brew info:", err);
       }
-    } else {
+    };
+    checkBrewUpdates();
+  }, [mcpdInstalled]);
+
+  // Fetch servers and version when daemon starts.
+  useEffect(() => {
+    if (!daemonStatus.running) {
       setMcpdVersion("");
+      return;
+    }
+
+    loadServers();
+
+    if (!mcpdVersion) {
+      const fetchVersion = async () => {
+        try {
+          const v = await window.electronAPI.getMcpdVersion();
+          setMcpdVersion(v);
+        } catch (err) {
+          console.error("Failed to fetch mcpd version:", err);
+        }
+      };
+      fetchVersion();
     }
   }, [daemonStatus.running]);
 
@@ -78,6 +101,16 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus, onNavigate }) => {
       if (result.success) {
         message.success(result.message);
         setMcpdInstalled(true);
+        // Fetch version and brew info now that mcpd is installed.
+        try {
+          const v = await window.electronAPI.getMcpdVersion();
+          setMcpdVersion(v);
+          const info = await window.electronAPI.getBrewInfo();
+          setBrewOutdated(info.outdated);
+          if (info.version !== "unknown") setBrewLatestVersion(info.version);
+        } catch {
+          // Non-critical — version info will be fetched on next poll.
+        }
       } else {
         message.error(result.message);
       }
@@ -94,6 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ daemonStatus, onNavigate }) => {
       const result = await window.electronAPI.upgradeMcpd();
       if (result.success) {
         message.success(result.message);
+        setBrewOutdated(false);
         if (result.newVersion) {
           setMcpdVersion(result.newVersion);
         }

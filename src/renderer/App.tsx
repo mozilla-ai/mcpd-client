@@ -29,7 +29,7 @@ declare global {
       stopDaemon: () => Promise<void>;
       getDaemonStatus: () => Promise<DaemonStatus>;
       getDaemonLogs: (lines?: number) => Promise<string[]>;
-      getDaemonVersion: () => Promise<string>;
+      getMcpdVersion: () => Promise<string>;
       getAppVersion: () => Promise<string>;
       isMcpdInstalled: () => Promise<boolean>;
       installMcpd: () => Promise<{ success: boolean; message: string }>;
@@ -86,7 +86,10 @@ const App: React.FC = () => {
   useEffect(() => {
     checkDaemonStatus();
     checkMcpdInstalled();
-    const interval = setInterval(checkDaemonStatus, 5000);
+    const interval = setInterval(() => {
+      checkDaemonStatus();
+      checkMcpdInstalled();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -98,7 +101,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (mcpdInstalled) {
       window.electronAPI
-        .getDaemonVersion()
+        .getMcpdVersion()
         .then((v) => {
           if (v && v !== "unknown") setMcpdVersion(v);
         })
@@ -142,6 +145,8 @@ const App: React.FC = () => {
         await window.electronAPI.stopDaemon();
       } else {
         const startPromise = window.electronAPI.startDaemon();
+        // Prevent unhandled rejection if timeout wins the race.
+        startPromise.catch(() => {});
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(
             () => reject(new Error("Daemon failed to start within 10 seconds")),
@@ -200,7 +205,11 @@ const App: React.FC = () => {
           theme="dark"
           selectedKeys={[selectedMenu]}
           mode="inline"
-          onClick={({ key }) => setSelectedMenu(key)}
+          onClick={({ key }) => {
+            // Clear stale server pre-selection when navigating via sidebar.
+            if (key === "tools") setToolsServer("");
+            setSelectedMenu(key);
+          }}
         >
           <Menu.Item key="dashboard" icon={<DashboardOutlined />}>
             Dashboard

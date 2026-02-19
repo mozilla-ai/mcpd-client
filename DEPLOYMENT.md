@@ -74,7 +74,7 @@ mcpd-setup filesystem --client tunnel
 This will:
 
 - Automatically install cloudflared if not present
-- Create a public tunnel to mcpd on port 8090
+- Create a public tunnel to the mcpd API (port 8090 by default)
 - Display the public URL
 
 Or manually:

@@ -40,6 +40,10 @@ const ToolExplorer: React.FC<ToolExplorerProps> = ({ initialServer }) => {
   useEffect(() => {
     if (initialServer) {
       setSelectedServer(initialServer);
+      // Clear stale tool state from previous server.
+      setSelectedTool(null);
+      setToolArgs("{}");
+      setToolResult(null);
     }
   }, [initialServer]);
 

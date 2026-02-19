@@ -46,6 +46,13 @@ export function setupIPC(mcpdManager: McpdManager) {
   });
 
   ipcMain.handle("shell:open-external", async (_, url: string) => {
+    // Only allow http/https URLs to prevent arbitrary scheme execution.
+    const parsed = new URL(url);
+    if (!["https:", "http:"].includes(parsed.protocol)) {
+      throw new Error(
+        `Blocked URL with disallowed protocol: ${parsed.protocol}`,
+      );
+    }
     await shell.openExternal(url);
   });
 

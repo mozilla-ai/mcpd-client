@@ -45,9 +45,11 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
 ## Prerequisites
 
 - **[mcpd](https://github.com/mozilla-ai/mcpd)** — the MCP daemon (required):
+
   ```bash
   brew install mozilla-ai/tap/mcpd
   ```
+
 - Node.js 18+ and npm
 - npx (for JavaScript MCP servers)
 - uvx (for Python MCP servers)

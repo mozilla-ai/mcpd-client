@@ -12,14 +12,19 @@ const ConfigEditor: React.FC = () => {
 
   useEffect(() => {
     if (!monaco) return;
+    // Only register TOML once (idempotent guard for remounts).
+    const registered = monaco.languages
+      .getLanguages()
+      .some((lang) => lang.id === "toml");
+    if (registered) return;
     monaco.languages.register({ id: "toml" });
     monaco.languages.setMonarchTokensProvider("toml", {
       tokenizer: {
         root: [
           [/#.*$/, "comment"],
-          [/\[\[[\w.]+\]\]/, "type.identifier"],
-          [/\[[\w.]+\]/, "type.identifier"],
-          [/[a-zA-Z_][\w]*(?=\s*=)/, "variable"],
+          [/\[\[[\w.-]+\]\]/, "type.identifier"],
+          [/\[[\w.-]+\]/, "type.identifier"],
+          [/[a-zA-Z_][\w-]*(?=\s*=)/, "variable"],
           [/=/, "delimiter"],
           [/"[^"]*"/, "string"],
           [/'[^']*'/, "string"],

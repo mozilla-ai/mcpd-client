@@ -24,7 +24,7 @@ export class McpdManager {
     this.configPath = path.join(userDataPath, ".mcpd.toml");
 
     // Read api.addr from config if set, otherwise use default.
-    this.apiEndpoint = this.readApiEndpoint();
+    this.apiEndpoint = this.readApiEndpoint(this.configPath);
     this.mcpdClient = new McpdClient({
       apiEndpoint: this.apiEndpoint,
       timeout: 10000,
@@ -139,9 +139,9 @@ export class McpdManager {
         }
 
         const basePath = this.buildFullPath();
-        const pathSet = new Set(basePath.split(":").filter(Boolean));
+        const pathSet = new Set(basePath.split(path.delimiter).filter(Boolean));
         nodeAdditional.forEach((p) => pathSet.add(p));
-        const fullPath = Array.from(pathSet).join(":");
+        const fullPath = Array.from(pathSet).join(path.delimiter);
 
         this.daemonProcess = spawn(
           this.mcpdPath,
@@ -443,11 +443,11 @@ export class McpdManager {
     return allLines.slice(-lines);
   }
 
-  private readApiEndpoint(): string {
+  private readApiEndpoint(configPath: string): string {
     const defaultEndpoint = "http://localhost:8090";
     try {
-      if (!fs.existsSync(this.configPath)) return defaultEndpoint;
-      const content = fs.readFileSync(this.configPath, "utf-8");
+      if (!fs.existsSync(configPath)) return defaultEndpoint;
+      const content = fs.readFileSync(configPath, "utf-8");
       const config = TOML.parse(content) as any;
       const addr = config?.daemon?.api?.addr;
       if (!addr) return defaultEndpoint;
@@ -743,7 +743,17 @@ export class McpdManager {
   }
 
   isMcpdInstalled(): boolean {
-    return this.mcpdPath !== "mcpd" && fs.existsSync(this.mcpdPath);
+    // Known absolute path — check if the file exists.
+    if (this.mcpdPath !== "mcpd") {
+      return fs.existsSync(this.mcpdPath);
+    }
+    // Bare "mcpd" fallback — check if it's resolvable via PATH.
+    try {
+      execSync("mcpd --version", { stdio: "ignore", timeout: 3000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async installMcpd(): Promise<{ success: boolean; message: string }> {
@@ -820,22 +830,31 @@ export class McpdManager {
         });
       });
 
-      proc.on("exit", async (code) => {
+      proc.on("exit", (code) => {
         // Refresh cached version regardless.
         this.cachedMcpdVersion = null;
         this.mcpdPath = this.findMcpdPath();
 
         if (code === 0) {
-          const newVersion = await this.getMcpdVersion();
-          resolve({
-            success: true,
-            message:
-              oldVersion === newVersion
-                ? `mcpd is already up to date (${newVersion}).`
-                : `mcpd upgraded from ${oldVersion} to ${newVersion}.`,
-            oldVersion,
-            newVersion,
-          });
+          this.getMcpdVersion()
+            .then((newVersion) => {
+              resolve({
+                success: true,
+                message:
+                  oldVersion === newVersion
+                    ? `mcpd is already up to date (${newVersion}).`
+                    : `mcpd upgraded from ${oldVersion} to ${newVersion}.`,
+                oldVersion,
+                newVersion,
+              });
+            })
+            .catch(() => {
+              resolve({
+                success: true,
+                message: "mcpd upgraded successfully.",
+                oldVersion,
+              });
+            });
         } else {
           resolve({
             success: false,
@@ -881,9 +900,10 @@ export class McpdManager {
       "/usr/sbin",
       "/sbin",
     ];
-    const pathSet = new Set(envPath.split(":").filter(Boolean));
+    const delimiter = path.delimiter;
+    const pathSet = new Set(envPath.split(delimiter).filter(Boolean));
     additionalPaths.forEach((p) => pathSet.add(p));
-    return Array.from(pathSet).join(":");
+    return Array.from(pathSet).join(delimiter);
   }
 
   private findMcpdPath(): string {

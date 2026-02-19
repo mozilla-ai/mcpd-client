@@ -85,8 +85,9 @@ const ServerManager: React.FC<ServerManagerProps> = ({ onViewTools }) => {
     const runtime = runtimeSep >= 0 ? pkg.slice(0, runtimeSep) : "";
     const rest = runtimeSep >= 0 ? pkg.slice(runtimeSep + 2) : pkg;
     const atIdx = rest.lastIndexOf("@");
-    const name = atIdx >= 0 ? rest.slice(0, atIdx) : rest;
-    const version = atIdx >= 0 ? rest.slice(atIdx + 1) : "";
+    // atIdx > 0 avoids splitting on the @ in scoped packages like @org/pkg.
+    const name = atIdx > 0 ? rest.slice(0, atIdx) : rest;
+    const version = atIdx > 0 ? rest.slice(atIdx + 1) : "";
     return { runtime, name, version };
   };
 

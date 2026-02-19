@@ -30,8 +30,8 @@ release/
 mcpd.log
 .mcpd-client/
 
-# Bundled binaries
-resources/
+# Bundled binaries.
+/resources/
 
 # Electron
 out/

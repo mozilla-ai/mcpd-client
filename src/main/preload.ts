@@ -18,7 +18,7 @@ try {
       return ipcRenderer.invoke("daemon:status");
     },
     getDaemonLogs: (lines?: number) => ipcRenderer.invoke("daemon:logs", lines),
-    getDaemonVersion: () => ipcRenderer.invoke("daemon:version"),
+    getMcpdVersion: () => ipcRenderer.invoke("daemon:version"),
     getAppVersion: () => ipcRenderer.invoke("app:version"),
     isMcpdInstalled: () =>
       ipcRenderer.invoke("daemon:mcpd-installed") as Promise<boolean>,
