@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import { McpdManager } from "./mcpd-manager";
 
 export function setupIPC(mcpdManager: McpdManager) {
@@ -35,6 +35,14 @@ export function setupIPC(mcpdManager: McpdManager) {
 
   ipcMain.handle("daemon:logs", async (_, lines: number = 100) => {
     return await mcpdManager.getLogs(lines);
+  });
+
+  ipcMain.handle("daemon:version", async () => {
+    return await mcpdManager.getMcpdVersion();
+  });
+
+  ipcMain.handle("app:version", () => {
+    return app.getVersion();
   });
 
   // Server management
@@ -101,6 +109,23 @@ export function setupIPC(mcpdManager: McpdManager) {
   ipcMain.handle("config:export", async () => {
     const config = await mcpdManager.loadConfig();
     return JSON.stringify(config, null, 2);
+  });
+
+  // Secrets management (runtime env/args for ~/.config/mcpd/secrets.dev.toml).
+  ipcMain.handle(
+    "secrets:save-server",
+    async (
+      _,
+      serverName: string,
+      env: Record<string, string>,
+      args: string[],
+    ) => {
+      return await mcpdManager.saveServerSecrets(serverName, env, args);
+    },
+  );
+
+  ipcMain.handle("secrets:path", () => {
+    return mcpdManager.getSecretsPath();
   });
 
   // Connect functionality - simplified one-click setup using mcpd-proxy.

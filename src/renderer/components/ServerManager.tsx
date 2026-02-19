@@ -1,17 +1,58 @@
-import React, { useState, useEffect } from "react";
-import { Card, Table, Button, Tag, Space, message, Popconfirm } from "antd";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Card,
+  Table,
+  Button,
+  Tag,
+  Space,
+  Typography,
+  message,
+  Popconfirm,
+} from "antd";
 import {
   PlusOutlined,
   DeleteOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { MCPServer } from "@shared/types";
+import { MCPServer, RegistryData } from "@shared/types";
 import AddServerModal from "./AddServerModal";
+
+import bundledRegistry from "../data/registry.json";
+import clientServers from "../data/client-servers.json";
+
+const { Text } = Typography;
+
+// Build a lookup from server name/id to its recommended installation version.
+function buildVersionMap(
+  ...registries: RegistryData[]
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  // Earlier registries take precedence (bundled mozilla-ai wins over client extras).
+  for (const registry of registries) {
+    for (const [id, server] of Object.entries(registry)) {
+      if (map[id]) continue;
+      const installations = Object.values(server.installations);
+      const recommended = installations.find((i) => i.recommended);
+      const version = (recommended ?? installations[0])?.version;
+      if (version) map[id] = version;
+    }
+  }
+  return map;
+}
 
 const ServerManager: React.FC = () => {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+
+  const versionMap = useMemo(
+    () =>
+      buildVersionMap(
+        bundledRegistry as RegistryData,
+        clientServers as RegistryData,
+      ),
+    [],
+  );
 
   useEffect(() => {
     loadServers();
@@ -73,6 +114,20 @@ const ServerManager: React.FC = () => {
       dataIndex: "package",
       key: "package",
       render: (text: string) => text || "N/A",
+    },
+    {
+      title: "Version",
+      // Looks up by server name which matches the registry ID set during browse-mode add.
+      dataIndex: "name",
+      key: "version",
+      render: (name: string) => {
+        const version = versionMap[name];
+        return version ? (
+          <Tag color="blue">v{version}</Tag>
+        ) : (
+          <Text type="secondary">—</Text>
+        );
+      },
     },
     {
       title: "Status",

@@ -26,11 +26,19 @@ declare global {
       stopDaemon: () => Promise<void>;
       getDaemonStatus: () => Promise<DaemonStatus>;
       getDaemonLogs: (lines?: number) => Promise<string[]>;
+      getDaemonVersion: () => Promise<string>;
+      getAppVersion: () => Promise<string>;
       listServers: () => Promise<any[]>;
       addServer: (server: any) => Promise<void>;
       removeServer: (name: string) => Promise<void>;
       searchServers: (query: string) => Promise<RegistryServer[]>;
       getServerTools: (name: string) => Promise<any[]>;
+      saveServerSecrets: (
+        serverName: string,
+        env: Record<string, string>,
+        args: string[],
+      ) => Promise<void>;
+      getSecretsPath: () => Promise<string>;
       callTool: (server: string, tool: string, args: any) => Promise<any>;
       loadConfig: () => Promise<any>;
       saveConfig: (content: string) => Promise<void>;
@@ -54,11 +62,16 @@ const App: React.FC = () => {
   const [daemonStatus, setDaemonStatus] = useState<DaemonStatus>({
     running: false,
   });
+  const [appVersion, setAppVersion] = useState<string>("");
 
   useEffect(() => {
     checkDaemonStatus();
     const interval = setInterval(checkDaemonStatus, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    window.electronAPI.getAppVersion().then(setAppVersion).catch(console.error);
   }, []);
 
   const checkDaemonStatus = async () => {
@@ -192,6 +205,21 @@ const App: React.FC = () => {
             Connect
           </Menu.Item>
         </Menu>
+        {!collapsed && appVersion && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 48,
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              color: "rgba(255,255,255,0.45)",
+              fontSize: 12,
+            }}
+          >
+            v{appVersion}
+          </div>
+        )}
       </Sider>
       <Layout>
         <Header

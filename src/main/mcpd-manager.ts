@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import { McpdClient } from "@mozilla-ai/mcpd";
 import * as TOML from "@iarna/toml";
 import { app } from "electron";
@@ -11,7 +12,9 @@ export class McpdManager {
   private mcpdClient: McpdClient;
   private logPath: string;
   private configPath: string;
+  private secretsPath: string;
   private mcpdPath: string;
+  private cachedMcpdVersion: string | null = null;
 
   constructor() {
     this.mcpdClient = new McpdClient({
@@ -23,6 +26,11 @@ export class McpdManager {
     const userDataPath = app.getPath("userData");
     this.logPath = path.join(userDataPath, "mcpd.log");
     this.configPath = path.join(userDataPath, ".mcpd.toml");
+
+    // Secrets file at the XDG config path used by mcpd in --dev mode.
+    const configHome =
+      process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+    this.secretsPath = path.join(configHome, "mcpd", "secrets.dev.toml");
 
     // Find mcpd binary path.
     this.mcpdPath = this.findMcpdPath();
@@ -89,12 +97,22 @@ export class McpdManager {
         this.initConfig();
       }
 
+      // Ensure the secrets file exists so --runtime-file doesn't fail on first launch.
+      if (!fs.existsSync(this.secretsPath)) {
+        const secretsDir = path.dirname(this.secretsPath);
+        if (!fs.existsSync(secretsDir)) {
+          fs.mkdirSync(secretsDir, { recursive: true });
+        }
+        fs.writeFileSync(this.secretsPath, "");
+      }
+
       console.log(`[${this.constructor.name}] Spawning daemon with args:`, [
         "daemon",
         "--dev",
         "--log-level=DEBUG",
         `--log-path=${this.logPath}`,
         `--config-file=${this.configPath}`,
+        `--runtime-file=${this.secretsPath}`,
       ]);
 
       try {
@@ -140,6 +158,7 @@ export class McpdManager {
             "--log-level=DEBUG",
             `--log-path=${this.logPath}`,
             `--config-file=${this.configPath}`,
+            `--runtime-file=${this.secretsPath}`,
           ],
           {
             cwd: app.getPath("userData"),
@@ -288,6 +307,7 @@ export class McpdManager {
   }
 
   async stopDaemon(): Promise<void> {
+    this.cachedMcpdVersion = null;
     if (this.daemonProcess) {
       return new Promise((resolve) => {
         this.daemonProcess!.on("exit", () => {
@@ -493,8 +513,10 @@ export class McpdManager {
     name: string;
     package: string;
     tools?: string[];
-    env?: Record<string, string>;
-    args?: string[];
+    required_env?: string[];
+    required_args?: string[];
+    required_args_bool?: string[];
+    required_args_positional?: string[];
   }): Promise<void> {
     console.log(
       `[${this.constructor.name}] addServerToConfig called with:`,
@@ -516,7 +538,7 @@ export class McpdManager {
       throw new Error(`Server with name '${server.name}' already exists`);
     }
 
-    // Build new server entry matching mcpd's expected TOML format.
+    // Build new server entry matching mcpd's ServerEntry TOML format.
     const newServer: any = {
       name: server.name,
       package: server.package,
@@ -525,11 +547,20 @@ export class McpdManager {
     if (server.tools && server.tools.length > 0) {
       newServer.tools = server.tools;
     }
-    if (server.env && Object.keys(server.env).length > 0) {
-      newServer.env = server.env;
+    if (server.required_env && server.required_env.length > 0) {
+      newServer.required_env = server.required_env;
     }
-    if (server.args && server.args.length > 0) {
-      newServer.args = server.args;
+    if (server.required_args && server.required_args.length > 0) {
+      newServer.required_args = server.required_args;
+    }
+    if (server.required_args_bool && server.required_args_bool.length > 0) {
+      newServer.required_args_bool = server.required_args_bool;
+    }
+    if (
+      server.required_args_positional &&
+      server.required_args_positional.length > 0
+    ) {
+      newServer.required_args_positional = server.required_args_positional;
     }
 
     // Add to config.
@@ -590,6 +621,97 @@ export class McpdManager {
       await this.startDaemon();
       console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
+  }
+
+  async getMcpdVersion(): Promise<string> {
+    if (this.cachedMcpdVersion) return this.cachedMcpdVersion;
+
+    return new Promise((resolve) => {
+      const proc = spawn(this.mcpdPath, ["version"], {
+        cwd: app.getPath("userData"),
+      });
+
+      let output = "";
+      let resolved = false;
+      const done = (value: string) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        if (value !== "unknown") this.cachedMcpdVersion = value;
+        resolve(value);
+      };
+
+      const timer = setTimeout(() => {
+        proc.kill();
+        done("unknown");
+      }, 5000);
+
+      proc.stdout?.on("data", (data) => {
+        output += data.toString();
+      });
+
+      proc.on("exit", (code) => {
+        done(code === 0 && output.trim() ? output.trim() : "unknown");
+      });
+
+      proc.on("error", () => {
+        done("unknown");
+      });
+    });
+  }
+
+  async saveServerSecrets(
+    serverName: string,
+    env: Record<string, string>,
+    args: string[],
+  ): Promise<void> {
+    // Ensure the config directory exists.
+    const secretsDir = path.dirname(this.secretsPath);
+    if (!fs.existsSync(secretsDir)) {
+      fs.mkdirSync(secretsDir, { recursive: true });
+    }
+
+    // Load existing secrets or start fresh.
+    let secrets: any = {};
+    if (fs.existsSync(this.secretsPath)) {
+      try {
+        const content = fs.readFileSync(this.secretsPath, "utf-8");
+        secrets = TOML.parse(content);
+      } catch (err) {
+        console.error(
+          `[${this.constructor.name}] Failed to parse ${this.secretsPath}, starting fresh:`,
+          err,
+        );
+      }
+    }
+
+    if (!secrets.servers) {
+      secrets.servers = {};
+    }
+
+    // Build the server section.
+    const serverSection: any = {};
+    if (args.length > 0) {
+      serverSection.args = args;
+    }
+    const nonEmptyEnv = Object.fromEntries(
+      Object.entries(env).filter(([, v]) => v !== ""),
+    );
+    if (Object.keys(nonEmptyEnv).length > 0) {
+      serverSection.env = nonEmptyEnv;
+    }
+
+    secrets.servers[serverName] = serverSection;
+
+    fs.writeFileSync(this.secretsPath, TOML.stringify(secrets));
+    console.log(
+      `[${this.constructor.name}] Server secrets saved to:`,
+      this.secretsPath,
+    );
+  }
+
+  getSecretsPath(): string {
+    return this.secretsPath;
   }
 
   async getConfiguredServers(): Promise<any[]> {
