@@ -8,6 +8,7 @@ import {
   Typography,
   message,
   Popconfirm,
+  Tooltip,
 } from "antd";
 import {
   PlusOutlined,
@@ -27,9 +28,14 @@ const ServerManager: React.FC<ServerManagerProps> = ({ onViewTools }) => {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [mcpdInstalled, setMcpdInstalled] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadServers();
+    window.electronAPI
+      .isMcpdInstalled()
+      .then(setMcpdInstalled)
+      .catch(console.error);
   }, []);
 
   const loadServers = async () => {
@@ -202,13 +208,24 @@ const ServerManager: React.FC<ServerManagerProps> = ({ onViewTools }) => {
             <Button icon={<ReloadOutlined />} onClick={loadServers}>
               Refresh
             </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setAddModalVisible(true)}
+            <Tooltip
+              title={
+                mcpdInstalled === false
+                  ? "Install mcpd to add servers"
+                  : undefined
+              }
             >
-              Add Server
-            </Button>
+              <span>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setAddModalVisible(true)}
+                  disabled={mcpdInstalled === false}
+                >
+                  Add Server
+                </Button>
+              </span>
+            </Tooltip>
           </Space>
         }
       >

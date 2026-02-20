@@ -585,16 +585,7 @@ export class McpdManager {
     );
 
     // Restart daemon to pick up new configuration.
-    console.log(
-      `[${this.constructor.name}] Restarting daemon to load new server...`,
-    );
-    const wasRunning = await this.getStatus();
-    if (wasRunning.running) {
-      await this.stopDaemon();
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await this.startDaemon();
-      console.log(`[${this.constructor.name}] Daemon restarted successfully`);
-    }
+    await this.restartDaemonIfRunning();
   }
 
   async removeServerFromConfig(name: string): Promise<void> {
@@ -619,16 +610,150 @@ export class McpdManager {
     fs.writeFileSync(this.configPath, tomlString);
 
     // Restart daemon to pick up configuration changes.
-    console.log(
-      `[${this.constructor.name}] Restarting daemon to reload configuration...`,
-    );
-    const wasRunning = await this.getStatus();
-    if (wasRunning.running) {
+    await this.restartDaemonIfRunning();
+  }
+
+  // Run an mcpd CLI subcommand and return stdout. Rejects on non-zero exit.
+  private runMcpdCommand(args: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.mcpdPath, args, {
+        cwd: app.getPath("userData"),
+        env: {
+          ...process.env,
+          PATH: this.buildFullPath(),
+        },
+      });
+
+      let stdout = "";
+      let stderr = "";
+      proc.stdout?.on("data", (data) => {
+        stdout += data.toString();
+      });
+      proc.stderr?.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on("error", (err) => {
+        reject(new Error(`Failed to run mcpd: ${err.message}`));
+      });
+
+      proc.on("exit", (code) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(
+            new Error(
+              `mcpd ${args[0]} failed (exit ${code}): ${stderr || stdout}`,
+            ),
+          );
+        }
+      });
+    });
+  }
+
+  // Stop and restart the daemon if it is currently running.
+  private async restartDaemonIfRunning(): Promise<void> {
+    console.log(`[${this.constructor.name}] Restarting daemon if running...`);
+    const status = await this.getStatus();
+    if (status.running) {
       await this.stopDaemon();
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await this.startDaemon();
       console.log(`[${this.constructor.name}] Daemon restarted successfully`);
     }
+  }
+
+  // Add a server from the registry using mcpd CLI.
+  async addServerFromRegistry(
+    name: string,
+    runtime: string,
+    version: string,
+    tools: string[],
+  ): Promise<void> {
+    const args = [
+      "add",
+      name,
+      `--runtime=${runtime}`,
+      `--config-file=${this.configPath}`,
+      `--runtime-file=${this.secretsPath}`,
+    ];
+    if (version) {
+      args.push(`--version=${version}`);
+    }
+    for (const tool of tools) {
+      args.push(`--tool=${tool}`);
+    }
+
+    await this.runMcpdCommand(args);
+    await this.restartDaemonIfRunning();
+  }
+
+  // Set environment variables for a server using mcpd CLI.
+  async setServerEnv(name: string, env: Record<string, string>): Promise<void> {
+    const kvPairs = Object.entries(env).map(([k, v]) => `${k}=${v}`);
+    if (kvPairs.length === 0) return;
+
+    const args = [
+      "config",
+      "env",
+      "set",
+      name,
+      `--config-file=${this.configPath}`,
+      `--runtime-file=${this.secretsPath}`,
+      ...kvPairs,
+    ];
+
+    await this.runMcpdCommand(args);
+  }
+
+  // Set arguments for a server using mcpd CLI.
+  async setServerArgs(
+    name: string,
+    positionalArgs: string[],
+    cliArgs: string[],
+    boolArgs: string[],
+  ): Promise<void> {
+    if (
+      positionalArgs.length === 0 &&
+      cliArgs.length === 0 &&
+      boolArgs.length === 0
+    ) {
+      return;
+    }
+
+    // Flags must come before the -- separator.
+    const args = [
+      "config",
+      "args",
+      "set",
+      name,
+      `--config-file=${this.configPath}`,
+      `--runtime-file=${this.secretsPath}`,
+      "--",
+      ...positionalArgs,
+      ...cliArgs,
+      ...boolArgs,
+    ];
+
+    await this.runMcpdCommand(args);
+  }
+
+  // Load the raw content of the secrets file.
+  async loadSecretsContent(): Promise<{ content: string }> {
+    if (!fs.existsSync(this.secretsPath)) {
+      return { content: "" };
+    }
+    const content = fs.readFileSync(this.secretsPath, "utf-8");
+    return { content };
+  }
+
+  // Overwrite the secrets file with the provided content.
+  async saveSecretsContent(content: string): Promise<void> {
+    const secretsDir = path.dirname(this.secretsPath);
+    if (!fs.existsSync(secretsDir)) {
+      fs.mkdirSync(secretsDir, { recursive: true });
+    }
+    fs.writeFileSync(this.secretsPath, content);
   }
 
   async getMcpdVersion(): Promise<string> {
@@ -722,6 +847,10 @@ export class McpdManager {
       `[${this.constructor.name}] Server secrets saved to:`,
       this.secretsPath,
     );
+  }
+
+  getConfigPath(): string {
+    return this.configPath;
   }
 
   getSecretsPath(): string {

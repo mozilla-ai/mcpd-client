@@ -55,6 +55,49 @@ try {
       args: string[],
     ) => ipcRenderer.invoke("secrets:save-server", serverName, env, args),
     getSecretsPath: () => ipcRenderer.invoke("secrets:path") as Promise<string>,
+    getConfigPath: () => ipcRenderer.invoke("config:path") as Promise<string>,
+
+    // Add server from registry using mcpd CLI.
+    addServerFromRegistry: (
+      name: string,
+      runtime: string,
+      version: string,
+      tools: string[],
+    ) =>
+      ipcRenderer.invoke(
+        "servers:add-registry",
+        name,
+        runtime,
+        version,
+        tools,
+      ) as Promise<void>,
+
+    // Set environment variables for a server via mcpd CLI.
+    setServerEnv: (name: string, env: Record<string, string>) =>
+      ipcRenderer.invoke("secrets:set-env", name, env) as Promise<void>,
+
+    // Set arguments for a server via mcpd CLI.
+    setServerArgs: (
+      name: string,
+      positionalArgs: string[],
+      cliArgs: string[],
+      boolArgs: string[],
+    ) =>
+      ipcRenderer.invoke(
+        "secrets:set-args",
+        name,
+        positionalArgs,
+        cliArgs,
+        boolArgs,
+      ) as Promise<void>,
+
+    // Load raw secrets file content.
+    loadSecretsContent: () =>
+      ipcRenderer.invoke("secrets:load") as Promise<{ content: string }>,
+
+    // Save raw secrets file content.
+    saveSecretsContent: (content: string) =>
+      ipcRenderer.invoke("secrets:save", content) as Promise<void>,
 
     // Tool execution
     callTool: (server: string, tool: string, args: any) =>

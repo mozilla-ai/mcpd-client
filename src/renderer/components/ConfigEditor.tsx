@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Card, Button, Space, message, Alert } from "antd";
+import { Card, Button, Space, message, Alert, Typography } from "antd";
 import {
   SaveOutlined,
   DownloadOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import MonacoEditor, { useMonaco } from "@monaco-editor/react";
+
+const { Text } = Typography;
 
 const ConfigEditor: React.FC = () => {
   const monaco = useMonaco();
@@ -34,21 +36,34 @@ const ConfigEditor: React.FC = () => {
       },
     });
   }, [monaco]);
+
   const [configContent, setConfigContent] = useState<string>("");
   const [originalContent, setOriginalContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
+  const [secretsContent, setSecretsContent] = useState<string>("");
+  const [originalSecretsContent, setOriginalSecretsContent] =
+    useState<string>("");
+  const [secretsLoading, setSecretsLoading] = useState(false);
+
+  const [configPath, setConfigPath] = useState<string>("");
+  const [secretsPath, setSecretsPath] = useState<string>("");
+
   useEffect(() => {
     loadConfig();
+    loadSecrets();
+    window.electronAPI.getConfigPath().then(setConfigPath).catch(console.error);
+    window.electronAPI
+      .getSecretsPath()
+      .then(setSecretsPath)
+      .catch(console.error);
   }, []);
 
   const loadConfig = async () => {
     setLoading(true);
     try {
       const config = await window.electronAPI.loadConfig();
-      console.log("Loaded config:", config);
       const content = config.content || "servers = []";
-      console.log("Config content:", content);
       setConfigContent(content);
       setOriginalContent(content);
     } catch (error) {
@@ -70,6 +85,31 @@ const ConfigEditor: React.FC = () => {
     }
   };
 
+  const loadSecrets = async () => {
+    setSecretsLoading(true);
+    try {
+      const result = await window.electronAPI.loadSecretsContent();
+      setSecretsContent(result.content);
+      setOriginalSecretsContent(result.content);
+    } catch (error) {
+      console.error("Failed to load secrets:", error);
+      message.error("Failed to load secrets file");
+    } finally {
+      setSecretsLoading(false);
+    }
+  };
+
+  const saveSecrets = async () => {
+    try {
+      await window.electronAPI.saveSecretsContent(secretsContent);
+      setOriginalSecretsContent(secretsContent);
+      message.success("Secrets saved successfully");
+    } catch (error) {
+      console.error("Failed to save secrets:", error);
+      message.error("Failed to save secrets file");
+    }
+  };
+
   const exportConfig = async () => {
     try {
       const exportedConfig = await window.electronAPI.exportConfig();
@@ -87,20 +127,34 @@ const ConfigEditor: React.FC = () => {
     }
   };
 
-  const hasChanges = configContent !== originalContent;
+  const hasConfigChanges = configContent !== originalContent;
+  const hasSecretsChanges = secretsContent !== originalSecretsContent;
+  const hasChanges = hasConfigChanges || hasSecretsChanges;
 
   return (
     <div>
       <Alert
-        message="Configuration File (.mcpd.toml)"
-        description="Edit your mcpd configuration directly. Changes will be applied after saving and restarting the daemon."
+        message="Configuration Files"
+        description="Edit your mcpd configuration and secrets directly. Changes will be applied after saving and restarting the daemon."
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
       />
 
       <Card
-        title="Configuration Editor"
+        title={
+          <Space>
+            <span>Config</span>
+            {configPath && (
+              <Text
+                type="secondary"
+                style={{ fontSize: 12, fontWeight: "normal" }}
+              >
+                {configPath}
+              </Text>
+            )}
+          </Space>
+        }
         extra={
           <Space>
             <Button
@@ -117,9 +171,9 @@ const ConfigEditor: React.FC = () => {
               type="primary"
               icon={<SaveOutlined />}
               onClick={saveConfig}
-              disabled={!hasChanges}
+              disabled={!hasConfigChanges}
             >
-              Save {hasChanges && "*"}
+              Save {hasConfigChanges && "*"}
             </Button>
           </Space>
         }
@@ -130,12 +184,76 @@ const ConfigEditor: React.FC = () => {
           </div>
         ) : (
           <MonacoEditor
-            height="calc(100vh - 370px)"
+            height="30vh"
             language="toml"
             theme="vs-dark"
             value={configContent}
             onChange={(value) => setConfigContent(value || "")}
             loading={loading}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              lineNumbers: "on",
+              wordWrap: "on",
+              scrollBeyondLastLine: false,
+              scrollbar: {
+                vertical: "auto",
+                horizontal: "auto",
+              },
+              formatOnPaste: true,
+              formatOnType: true,
+            }}
+          />
+        )}
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <span>Secrets</span>
+            {secretsPath && (
+              <Text
+                type="secondary"
+                style={{ fontSize: 12, fontWeight: "normal" }}
+              >
+                {secretsPath}
+              </Text>
+            )}
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadSecrets}
+              loading={secretsLoading}
+            >
+              Reload
+            </Button>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={saveSecrets}
+              disabled={!hasSecretsChanges}
+            >
+              Save {hasSecretsChanges && "*"}
+            </Button>
+          </Space>
+        }
+        style={{ marginTop: 16 }}
+      >
+        {secretsLoading ? (
+          <div style={{ padding: 20, textAlign: "center" }}>
+            Loading secrets...
+          </div>
+        ) : (
+          <MonacoEditor
+            height="30vh"
+            language="toml"
+            theme="vs-dark"
+            value={secretsContent}
+            onChange={(value) => setSecretsContent(value || "")}
+            loading={secretsLoading}
             options={{
               minimap: { enabled: false },
               fontSize: 14,

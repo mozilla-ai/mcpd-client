@@ -68,6 +68,29 @@ export interface IpcChannels {
     args: string[],
   ) => Promise<void>;
   "secrets:path": () => Promise<string>;
+  "secrets:set-env": (
+    name: string,
+    env: Record<string, string>,
+  ) => Promise<void>;
+  "secrets:set-args": (
+    name: string,
+    positionalArgs: string[],
+    cliArgs: string[],
+    boolArgs: string[],
+  ) => Promise<void>;
+  "secrets:load": () => Promise<{ content: string }>;
+  "secrets:save": (content: string) => Promise<void>;
+
+  // Config path
+  "config:path": () => Promise<string>;
+
+  // Registry-based server addition via mcpd CLI
+  "servers:add-registry": (
+    name: string,
+    runtime: string,
+    version: string,
+    tools: string[],
+  ) => Promise<void>;
 }
 
 export interface LogEntry {
