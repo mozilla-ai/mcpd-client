@@ -52,6 +52,25 @@ declare global {
         args: string[],
       ) => Promise<void>;
       getSecretsPath: () => Promise<string>;
+      getConfigPath: () => Promise<string>;
+      addServerFromRegistry: (
+        name: string,
+        runtime: string,
+        version: string,
+        tools: string[],
+      ) => Promise<void>;
+      setServerEnv: (
+        name: string,
+        env: Record<string, string>,
+      ) => Promise<void>;
+      setServerArgs: (
+        name: string,
+        positionalArgs: string[],
+        cliArgs: string[],
+        boolArgs: string[],
+      ) => Promise<void>;
+      loadSecretsContent: () => Promise<{ content: string }>;
+      saveSecretsContent: (content: string) => Promise<void>;
       callTool: (server: string, tool: string, args: any) => Promise<any>;
       loadConfig: () => Promise<any>;
       saveConfig: (content: string) => Promise<void>;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Modal,
   Form,
@@ -14,7 +14,6 @@ import {
   List,
   Typography,
   message,
-  Card,
   Row,
   Col,
   Collapse,
@@ -32,8 +31,8 @@ import {
   LoadingOutlined,
   SafetyCertificateOutlined,
   FilterOutlined,
+  ArrowLeftOutlined,
 } from "@ant-design/icons";
-import MonacoEditor from "@monaco-editor/react";
 import { RegistryServer, RegistryArgument, RegistryData } from "@shared/types";
 import bundledRegistry from "../data/registry.json";
 import clientServers from "../data/client-servers.json";
@@ -63,6 +62,98 @@ interface ServerFilters {
 }
 
 const EMPTY_FILTERS: ServerFilters = { tags: [] };
+
+// Simple TOML syntax highlighting for preview blocks.
+const TOML_HIGHLIGHT_COLORS = {
+  comment: "#6a9955",
+  section: "#569cd6",
+  key: "#9cdcfe",
+  string: "#ce9178",
+  keyword: "#569cd6",
+  number: "#b5cea8",
+  delimiter: "#d4d4d4",
+};
+
+// Tokenize a single line into highlighted spans.
+function highlightTomlLine(line: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let remaining = line;
+  let idx = 0;
+
+  const push = (text: string, color?: string) => {
+    if (!text) return;
+    nodes.push(
+      color ? (
+        <span key={idx++} style={{ color }}>
+          {text}
+        </span>
+      ) : (
+        <span key={idx++}>{text}</span>
+      ),
+    );
+  };
+
+  // Comment line.
+  if (/^\s*#/.test(remaining)) {
+    push(remaining, TOML_HIGHLIGHT_COLORS.comment);
+    return nodes;
+  }
+
+  // Section header: [[...]] or [...].
+  const sectionMatch = remaining.match(/^(\s*)(\[\[?.+?\]?\])(.*)$/);
+  if (sectionMatch) {
+    push(sectionMatch[1]);
+    push(sectionMatch[2], TOML_HIGHLIGHT_COLORS.section);
+    push(sectionMatch[3]);
+    return nodes;
+  }
+
+  // Key = value line.
+  const kvMatch = remaining.match(/^(\s*)([\w.-]+)(\s*=\s*)(.*)/);
+  if (kvMatch) {
+    push(kvMatch[1]);
+    push(kvMatch[2], TOML_HIGHLIGHT_COLORS.key);
+    push(kvMatch[3], TOML_HIGHLIGHT_COLORS.delimiter);
+    remaining = kvMatch[4];
+
+    // Highlight the value portion with simple token matching.
+    const valTokens =
+      remaining.match(
+        /("(?:[^"\\]|\\.)*"|'[^']*'|true|false|[+-]?\d+(?:\.\d+)?|\[|\]|,|\s+|[^\s,[\]"']+)/g,
+      ) || [];
+    for (const token of valTokens) {
+      if (/^["']/.test(token)) {
+        push(token, TOML_HIGHLIGHT_COLORS.string);
+      } else if (/^(true|false)$/.test(token)) {
+        push(token, TOML_HIGHLIGHT_COLORS.keyword);
+      } else if (/^[+-]?\d+(\.\d+)?$/.test(token)) {
+        push(token, TOML_HIGHLIGHT_COLORS.number);
+      } else {
+        push(token);
+      }
+    }
+    return nodes;
+  }
+
+  // Fallback: unhighlighted.
+  push(remaining);
+  return nodes;
+}
+
+// Render TOML content with syntax highlighting.
+function HighlightedToml({ content }: { content: string }) {
+  const lines = content.split("\n");
+  return (
+    <>
+      {lines.map((line, i) => (
+        <React.Fragment key={i}>
+          {highlightTomlLine(line)}
+          {i < lines.length - 1 && "\n"}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
 
 // Escape a string for use in a TOML quoted value.
 function escapeToml(value: string): string {
@@ -198,8 +289,10 @@ interface ProcessedArgs {
 }
 
 // Shared argument processing: maps registry arguments to mcpd config fields.
+// When argValues is provided, optional args with user-entered values are included.
 function processArguments(
   serverArgs: Record<string, RegistryArgument> | undefined,
+  argValues?: Record<string, string | boolean>,
 ): ProcessedArgs {
   const requiredEnv: string[] = [];
   const requiredArgs: string[] = [];
@@ -207,7 +300,10 @@ function processArguments(
   const positional: { position: number; name: string }[] = [];
 
   for (const [, arg] of Object.entries(serverArgs ?? {})) {
-    if (!arg.required) continue;
+    const userValue = argValues?.[arg.name];
+    const hasValue =
+      userValue !== undefined && userValue !== "" && userValue !== false;
+    if (!arg.required && !hasValue) continue;
 
     switch (arg.type) {
       case "environment":
@@ -248,11 +344,78 @@ function buildPackageId(installation: {
   return installation.version ? `${base}@${installation.version}` : base;
 }
 
+// Build the secrets TOML preview showing what will be written to secrets.dev.toml.
+// Environment values are masked unless their field is toggled visible.
+function buildSecretsPreview(
+  serverId: string,
+  serverArgs: Record<string, RegistryArgument> | undefined,
+  argValues: Record<string, string | boolean>,
+  visibleFields: Set<string>,
+): string {
+  if (!serverArgs || Object.keys(argValues).length === 0) return "";
+
+  const envLines: string[] = [];
+  const positionalArgs: { position: number; value: string }[] = [];
+  const cliArgs: string[] = [];
+
+  for (const [, arg] of Object.entries(serverArgs)) {
+    const value = argValues[arg.name];
+    if (value === undefined || value === "" || value === false) continue;
+
+    switch (arg.type) {
+      case "environment": {
+        const display = visibleFields.has(arg.name)
+          ? `"${escapeToml(value as string)}"`
+          : '"********"';
+        envLines.push(`  ${arg.name} = ${display}`);
+        break;
+      }
+      case "argument":
+        cliArgs.push(`${arg.name}=${value}`);
+        break;
+      case "argument_bool":
+        if (value) cliArgs.push(arg.name);
+        break;
+      case "argument_positional":
+        positionalArgs.push({
+          position: arg.position ?? 0,
+          value: value as string,
+        });
+        break;
+    }
+  }
+
+  const sortedPositional = positionalArgs
+    .sort((a, b) => a.position - b.position)
+    .map((a) => a.value);
+  const allArgs = [...sortedPositional, ...cliArgs];
+
+  if (envLines.length === 0 && allArgs.length === 0) return "";
+
+  let preview = "";
+  if (allArgs.length > 0) {
+    const argsArr = allArgs.map((a) => `"${escapeToml(a)}"`).join(", ");
+    preview += `[servers.${serverId}]\n`;
+    preview += `  args = [${argsArr}]\n`;
+  }
+  if (envLines.length > 0) {
+    if (allArgs.length === 0) {
+      // Still need the server section header for env.
+      preview += `[servers.${serverId}]\n`;
+    }
+    preview += `\n[servers.${serverId}.env]\n`;
+    preview += envLines.join("\n") + "\n";
+  }
+
+  return preview;
+}
+
 // Generate mcpd TOML matching the ServerEntry struct.
 function generateToml(
   server: RegistryServer,
   runtimeKey: string,
   selectedTools: string[],
+  argValues?: Record<string, string | boolean>,
 ): string {
   const installation = server.installations[runtimeKey];
   if (!installation) return "# No installation found for this runtime";
@@ -265,7 +428,7 @@ function generateToml(
   toml += `  package = "${escapeToml(buildPackageId(installation))}"\n`;
   toml += `  tools = ${tomlArr(selectedTools)}\n`;
 
-  const processed = processArguments(server.arguments);
+  const processed = processArguments(server.arguments, argValues);
 
   if (processed.requiredEnv.length > 0) {
     toml += `  required_env = ${tomlArr(processed.requiredEnv)}\n`;
@@ -298,14 +461,17 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   );
   const [selectedRuntime, setSelectedRuntime] = useState<string>("");
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
-  const [tomlPreview, setTomlPreview] = useState("");
+  const [configPreview, setConfigPreview] = useState("");
+  const [secretsPreview, setSecretsPreview] = useState("");
+  const [configPath, setConfigPath] = useState("");
+  const [secretsPath, setSecretsPath] = useState("");
   const [adding, setAdding] = useState(false);
   const [argValues, setArgValues] = useState<Record<string, string | boolean>>(
     {},
   );
-
-  const configCardRef = useRef<HTMLDivElement>(null);
-
+  const [visibleEnvFields, setVisibleEnvFields] = useState<Set<string>>(
+    new Set(),
+  );
   // Registry data: bundled snapshot, overlaid with live search results.
   const [liveServers, setLiveServers] = useState<TaggedServer[]>([]);
   const [loadingLive, setLoadingLive] = useState(false);
@@ -375,10 +541,18 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     }
   };
 
-  // Fetch live registry from daemon when modal opens.
+  // Fetch live registry and file paths when modal opens.
   useEffect(() => {
     if (visible) {
       fetchLiveRegistry();
+      window.electronAPI
+        .getConfigPath()
+        .then(setConfigPath)
+        .catch(console.error);
+      window.electronAPI
+        .getSecretsPath()
+        .then(setSecretsPath)
+        .catch(console.error);
     } else {
       // Reset all state when modal closes.
       form.resetFields();
@@ -390,20 +564,37 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
       setSearchQuery("");
       setFilters(EMPTY_FILTERS);
       setShowFilters(false);
-      setTomlPreview("");
+      setConfigPreview("");
+      setSecretsPreview("");
+      setVisibleEnvFields(new Set());
     }
   }, [visible, form]);
 
-  // Regenerate TOML preview when relevant state changes.
+  // Regenerate TOML previews when relevant state changes.
   useEffect(() => {
     if (selectedServer && selectedRuntime) {
-      setTomlPreview(
-        generateToml(selectedServer, selectedRuntime, selectedTools),
+      setConfigPreview(
+        generateToml(selectedServer, selectedRuntime, selectedTools, argValues),
+      );
+      setSecretsPreview(
+        buildSecretsPreview(
+          selectedServer.id,
+          selectedServer.arguments,
+          argValues,
+          visibleEnvFields,
+        ),
       );
     } else {
-      setTomlPreview("");
+      setConfigPreview("");
+      setSecretsPreview("");
     }
-  }, [selectedServer, selectedRuntime, selectedTools]);
+  }, [
+    selectedServer,
+    selectedRuntime,
+    selectedTools,
+    argValues,
+    visibleEnvFields,
+  ]);
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -422,6 +613,7 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
   const selectServer = (server: TaggedServer) => {
     setSelectedServer(server);
     setArgValues({});
+    setVisibleEnvFields(new Set());
 
     // Pick the recommended or first installation.
     const entries = Object.entries(server.installations);
@@ -441,14 +633,6 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
     form.setFieldsValue({
       name: server.id,
       package: buildPackageId(installation),
-    });
-
-    // Scroll config card into view after render.
-    requestAnimationFrame(() => {
-      configCardRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
     });
   };
 
@@ -477,75 +661,122 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
         await window.electronAPI.addServer(serverConfig);
         message.success(`Server ${values.name} added successfully`);
       } else {
-        // Browse mode: build config from registry data matching mcpd ServerEntry.
+        // Browse mode: use mcpd CLI to add the server from the registry.
         const installation = selectedServer!.installations[selectedRuntime];
         if (!installation) {
           message.error("No installation found for selected runtime");
           return;
         }
 
-        const processed = processArguments(selectedServer!.arguments);
+        await window.electronAPI.addServerFromRegistry(
+          selectedServer!.id,
+          installation.runtime,
+          installation.version || "",
+          selectedTools,
+        );
 
-        const serverConfig: Record<string, unknown> = {
-          name: selectedServer!.id,
-          package: buildPackageId(installation),
-          tools: selectedTools,
-        };
-        if (processed.requiredEnv.length > 0) {
-          serverConfig.required_env = processed.requiredEnv;
-        }
-        if (processed.requiredArgs.length > 0) {
-          serverConfig.required_args = processed.requiredArgs;
-        }
-        if (processed.requiredArgsBool.length > 0) {
-          serverConfig.required_args_bool = processed.requiredArgsBool;
-        }
-        if (processed.requiredArgsPositional.length > 0) {
-          serverConfig.required_args_positional =
-            processed.requiredArgsPositional;
-        }
-
-        await window.electronAPI.addServer(serverConfig);
-
-        // Save user-entered values to secrets.dev.toml if any were provided.
+        // Save user-entered env/args via mcpd CLI.
         // Non-fatal: server config is already saved, so warn instead of failing.
         if (selectedServer!.arguments && Object.keys(argValues).length > 0) {
           try {
             const env: Record<string, string> = {};
-            const args: string[] = [];
+            const positionalArgs: string[] = [];
+            const cliArgs: string[] = [];
+            const boolArgs: string[] = [];
+            const positionalEntries: { position: number; value: string }[] = [];
 
             for (const [, arg] of Object.entries(selectedServer!.arguments)) {
               const value = argValues[arg.name];
-              if (value === undefined || value === "") continue;
+              if (value === undefined || value === "" || value === false)
+                continue;
 
               switch (arg.type) {
                 case "environment":
                   env[arg.name] = value as string;
                   break;
                 case "argument":
-                  args.push(`--${arg.name}=${value}`);
+                  cliArgs.push(`${arg.name}=${value}`);
                   break;
                 case "argument_bool":
-                  if (value) args.push(`--${arg.name}`);
+                  if (value) boolArgs.push(arg.name);
                   break;
                 case "argument_positional":
-                  args.push(value as string);
+                  positionalEntries.push({
+                    position: arg.position ?? 0,
+                    value: value as string,
+                  });
                   break;
               }
             }
 
-            if (Object.keys(env).length > 0 || args.length > 0) {
-              await window.electronAPI.saveServerSecrets(
+            positionalEntries
+              .sort((a, b) => a.position - b.position)
+              .forEach((a) => positionalArgs.push(a.value));
+
+            if (Object.keys(env).length > 0) {
+              await window.electronAPI.setServerEnv(selectedServer!.id, env);
+            }
+            if (
+              positionalArgs.length > 0 ||
+              cliArgs.length > 0 ||
+              boolArgs.length > 0
+            ) {
+              await window.electronAPI.setServerArgs(
                 selectedServer!.id,
-                env,
-                args,
+                positionalArgs,
+                cliArgs,
+                boolArgs,
               );
             }
-          } catch (err) {
+          } catch (err: any) {
             console.error("Failed to save secrets:", err);
-            message.warning(
-              "Server added, but failed to save secrets. You can configure them manually in ~/.config/mcpd/secrets.dev.toml",
-            );
+            const errorDetail = err?.message || String(err);
+            const serverId = selectedServer!.id;
+            Modal.confirm({
+              title: "Server added with errors",
+              content: (
+                <div>
+                  <p>
+                    The server was added to your config, but saving
+                    environment/argument values failed. You can keep the server
+                    and configure secrets manually, or remove it and try again.
+                  </p>
+                  <pre
+                    style={{
+                      background: "#f5f5f5",
+                      padding: 8,
+                      borderRadius: 4,
+                      fontSize: 12,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {errorDetail}
+                  </pre>
+                </div>
+              ),
+              okText: "Keep Server",
+              cancelText: "Remove Server",
+              onOk: () => {
+                onSuccess();
+                onClose();
+              },
+              onCancel: async () => {
+                try {
+                  await window.electronAPI.removeServer(serverId);
+                  message.info(`Server ${serverId} removed`);
+                  onSuccess();
+                  onClose();
+                } catch (removeErr: any) {
+                  message.error(
+                    `Failed to remove server: ${removeErr?.message || removeErr}`,
+                  );
+                }
+              },
+            });
+            // Return early so the success toast and modal close are
+            // deferred until the user picks "Keep" or "Remove".
+            return;
           }
         }
 
@@ -604,13 +835,33 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
             onChange={(checked) => updateArgValue(arg.name, checked)}
             size="small"
           />
+        ) : arg.type === "environment" ? (
+          <Input.Password
+            size="small"
+            placeholder={arg.example || `Enter ${arg.name}`}
+            value={(argValues[arg.name] as string) || ""}
+            onChange={(e) => updateArgValue(arg.name, e.target.value)}
+            visibilityToggle={{
+              visible: visibleEnvFields.has(arg.name),
+              onVisibleChange: (v) => {
+                setVisibleEnvFields((prev) => {
+                  const next = new Set(prev);
+                  if (v) {
+                    next.add(arg.name);
+                  } else {
+                    next.delete(arg.name);
+                  }
+                  return next;
+                });
+              },
+            }}
+          />
         ) : (
           <Input
             size="small"
             placeholder={arg.example || `Enter ${arg.name}`}
             value={(argValues[arg.name] as string) || ""}
             onChange={(e) => updateArgValue(arg.name, e.target.value)}
-            type={arg.type === "environment" ? "password" : "text"}
           />
         )}
       </div>
@@ -622,8 +873,6 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
       onClick={() => selectServer(server)}
       style={{
         cursor: "pointer",
-        background:
-          selectedServer?.id === server.id ? "#1890ff20" : "transparent",
         padding: 12,
         borderRadius: 4,
         marginBottom: 8,
@@ -828,82 +1077,127 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
 
   const renderBrowseMode = () => (
     <div>
-      <Space style={{ width: "100%", marginBottom: 8 }} direction="vertical">
-        <Space style={{ width: "100%" }}>
-          <Input.Search
-            placeholder="Search servers by name, description, tool, or tag..."
-            onChange={(e) => setSearchQuery(e.target.value)}
-            value={searchQuery}
-            allowClear
-            style={{ flex: 1 }}
-          />
-          <Button
-            icon={<FilterOutlined />}
-            onClick={() => setShowFilters(!showFilters)}
-            type={activeFilterCount > 0 ? "primary" : "default"}
-            size="middle"
+      {!selectedServer && (
+        <>
+          <Space
+            style={{ width: "100%", marginBottom: 8 }}
+            direction="vertical"
           >
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </Button>
-        </Space>
-        {showFilters && renderFilterBar()}
-        {loadingLive && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            <LoadingOutlined /> Loading live registry from daemon...
-          </Text>
-        )}
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {filteredServers.length} server
-          {filteredServers.length !== 1 ? "s" : ""}
-          {searchQuery || activeFilterCount > 0 ? " matching" : " available"}
-        </Text>
-      </Space>
+            <Space style={{ width: "100%" }}>
+              <Input.Search
+                placeholder="Search servers by name, description, tool, or tag..."
+                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchQuery}
+                allowClear
+                style={{ flex: 1 }}
+              />
+              <Button
+                icon={<FilterOutlined />}
+                onClick={() => setShowFilters(!showFilters)}
+                type={activeFilterCount > 0 ? "primary" : "default"}
+                size="middle"
+              >
+                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+              </Button>
+            </Space>
+            {showFilters && renderFilterBar()}
+            {loadingLive && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <LoadingOutlined /> Loading live registry from daemon...
+              </Text>
+            )}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {filteredServers.length} server
+              {filteredServers.length !== 1 ? "s" : ""}
+              {searchQuery || activeFilterCount > 0
+                ? " matching"
+                : " available"}
+            </Text>
+          </Space>
 
-      {filteredServers.length === 0 ? (
-        <Empty
-          description={
-            searchQuery || activeFilterCount > 0
-              ? "No servers match the current filters"
-              : "No servers available"
-          }
-        />
-      ) : (
-        <div style={{ maxHeight: 400, overflow: "auto" }}>
-          {searchQuery || activeFilterCount > 0 ? (
-            <List
-              dataSource={filteredServers}
-              renderItem={renderServerListItem}
+          {filteredServers.length === 0 ? (
+            <Empty
+              description={
+                searchQuery || activeFilterCount > 0
+                  ? "No servers match the current filters"
+                  : "No servers available"
+              }
             />
           ) : (
-            <Collapse defaultActiveKey={Object.keys(serversByCategory)} ghost>
-              {Object.entries(serversByCategory).map(([category, servers]) => (
-                <Collapse.Panel
-                  key={category}
-                  header={
-                    <Space>
-                      {getCategoryIcon(category)}
-                      <Text strong>{category}</Text>
-                      <Tag>{servers.length} servers</Tag>
-                    </Space>
-                  }
+            <div style={{ maxHeight: 400, overflow: "auto" }}>
+              {searchQuery || activeFilterCount > 0 ? (
+                <List
+                  dataSource={filteredServers}
+                  renderItem={renderServerListItem}
+                />
+              ) : (
+                <Collapse
+                  defaultActiveKey={Object.keys(serversByCategory)}
+                  ghost
                 >
-                  <List
-                    dataSource={servers}
-                    renderItem={renderServerListItem}
-                  />
-                </Collapse.Panel>
-              ))}
-            </Collapse>
+                  {Object.entries(serversByCategory).map(
+                    ([category, servers]) => (
+                      <Collapse.Panel
+                        key={category}
+                        header={
+                          <Space>
+                            {getCategoryIcon(category)}
+                            <Text strong>{category}</Text>
+                            <Tag>{servers.length} servers</Tag>
+                          </Space>
+                        }
+                      >
+                        <List
+                          dataSource={servers}
+                          renderItem={renderServerListItem}
+                        />
+                      </Collapse.Panel>
+                    ),
+                  )}
+                </Collapse>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {selectedServer && (
-        <Card
-          ref={configCardRef}
-          title="Server Configuration"
-          style={{ marginTop: 16 }}
-        >
+        <div>
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => setSelectedServer(null)}
+            style={{ marginBottom: 12, paddingLeft: 0 }}
+          >
+            Back to servers
+          </Button>
+
+          <div style={{ marginBottom: 16 }}>
+            <Space>
+              <Text strong style={{ fontSize: 16 }}>
+                {selectedServer.displayName ?? selectedServer.name}
+              </Text>
+              {selectedServer.isOfficial && (
+                <Tag color="blue" icon={<SafetyCertificateOutlined />}>
+                  Official
+                </Tag>
+              )}
+            </Space>
+            <Paragraph
+              type="secondary"
+              style={{ marginBottom: 4, marginTop: 4 }}
+            >
+              {selectedServer.description}
+            </Paragraph>
+            {selectedServer.tags && selectedServer.tags.length > 0 && (
+              <Space wrap size={[4, 4]}>
+                {selectedServer.tags.map((t) => (
+                  <Tag key={t}>{t}</Tag>
+                ))}
+              </Space>
+            )}
+          </div>
+
           <Form form={form} layout="vertical">
             <Form.Item name="name" label="Server Name">
               <Input disabled />
@@ -972,7 +1266,11 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                   <Divider orientation="left">Configuration Values</Divider>
                   <Text
                     type="secondary"
-                    style={{ display: "block", marginBottom: 12, fontSize: 12 }}
+                    style={{
+                      display: "block",
+                      marginBottom: 12,
+                      fontSize: 12,
+                    }}
                   >
                     These values will be saved to your secrets file
                     (~/.config/mcpd/secrets.dev.toml).
@@ -983,7 +1281,67 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
                 </>
               )}
           </Form>
-        </Card>
+
+          {configPreview && (
+            <Collapse
+              defaultActiveKey={["config-preview", "secrets-preview"]}
+              style={{ marginTop: 16 }}
+            >
+              <Collapse.Panel
+                key="config-preview"
+                header={
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    <FileOutlined style={{ marginRight: 6 }} />
+                    {configPath || ".mcpd.toml"}
+                  </Text>
+                }
+              >
+                <pre
+                  style={{
+                    background: "#1e1e1e",
+                    color: "#d4d4d4",
+                    fontFamily: "monospace",
+                    fontSize: 12,
+                    padding: 12,
+                    borderRadius: 4,
+                    margin: 0,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  <HighlightedToml content={configPreview} />
+                </pre>
+              </Collapse.Panel>
+              {secretsPreview && (
+                <Collapse.Panel
+                  key="secrets-preview"
+                  header={
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      <FileOutlined style={{ marginRight: 6 }} />
+                      {secretsPath || "secrets.dev.toml"}
+                    </Text>
+                  }
+                >
+                  <pre
+                    style={{
+                      background: "#1e1e1e",
+                      color: "#d4d4d4",
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                      padding: 12,
+                      borderRadius: 4,
+                      margin: 0,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    <HighlightedToml content={secretsPreview} />
+                  </pre>
+                </Collapse.Panel>
+              )}
+            </Collapse>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1059,24 +1417,6 @@ const AddServerModal: React.FC<AddServerModalProps> = ({
           {renderCustomMode()}
         </TabPane>
       </Tabs>
-
-      {tomlPreview && (
-        <div style={{ marginTop: 16 }}>
-          <Divider>Configuration Preview</Divider>
-          <MonacoEditor
-            height="150px"
-            language="toml"
-            theme="vs-dark"
-            value={tomlPreview}
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              fontSize: 12,
-              lineNumbers: "off",
-            }}
-          />
-        </div>
-      )}
     </Modal>
   );
 };

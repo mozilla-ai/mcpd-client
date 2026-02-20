@@ -76,20 +76,19 @@ export function setupIPC(mcpdManager: McpdManager) {
   ipcMain.handle("servers:list", async () => {
     const serverNames = await mcpdManager.getServers();
     const configuredServers = await mcpdManager.getConfiguredServers();
-    const servers = [];
+    const runningSet = new Set(serverNames);
 
-    for (const name of serverNames) {
-      const configServer = configuredServers.find((s) => s.name === name);
-      servers.push({
-        name,
-        package: configServer?.package || "",
-        tools: [],
-        status: "running" as const,
-        health: "healthy" as const,
-      });
-    }
-
-    return servers;
+    return configuredServers.map((cs) => ({
+      name: cs.name,
+      package: cs.package || "",
+      tools: [],
+      status: runningSet.has(cs.name)
+        ? ("running" as const)
+        : ("stopped" as const),
+      health: runningSet.has(cs.name)
+        ? ("healthy" as const)
+        : ("unknown" as const),
+    }));
   });
 
   ipcMain.handle("servers:add", async (_, server: any) => {
@@ -153,6 +152,66 @@ export function setupIPC(mcpdManager: McpdManager) {
 
   ipcMain.handle("secrets:path", () => {
     return mcpdManager.getSecretsPath();
+  });
+
+  ipcMain.handle("config:path", () => {
+    return mcpdManager.getConfigPath();
+  });
+
+  // Add server from registry using mcpd CLI.
+  ipcMain.handle(
+    "servers:add-registry",
+    async (
+      _,
+      name: string,
+      runtime: string,
+      version: string,
+      tools: string[],
+    ) => {
+      return await mcpdManager.addServerFromRegistry(
+        name,
+        runtime,
+        version,
+        tools,
+      );
+    },
+  );
+
+  // Set environment variables for a server using mcpd CLI.
+  ipcMain.handle(
+    "secrets:set-env",
+    async (_, name: string, env: Record<string, string>) => {
+      return await mcpdManager.setServerEnv(name, env);
+    },
+  );
+
+  // Set arguments for a server using mcpd CLI.
+  ipcMain.handle(
+    "secrets:set-args",
+    async (
+      _,
+      name: string,
+      positionalArgs: string[],
+      cliArgs: string[],
+      boolArgs: string[],
+    ) => {
+      return await mcpdManager.setServerArgs(
+        name,
+        positionalArgs,
+        cliArgs,
+        boolArgs,
+      );
+    },
+  );
+
+  // Load raw secrets file content.
+  ipcMain.handle("secrets:load", async () => {
+    return await mcpdManager.loadSecretsContent();
+  });
+
+  // Save raw secrets file content.
+  ipcMain.handle("secrets:save", async (_, content: string) => {
+    return await mcpdManager.saveSecretsContent(content);
   });
 
   // Connect functionality - simplified one-click setup using mcpd-proxy.
