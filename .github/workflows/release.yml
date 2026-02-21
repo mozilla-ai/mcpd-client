@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package
+        run: npx electron-builder --mac --${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: mcpd-client-${{ matrix.arch }}
+          path: |
+            release/*.zip
+            release/*.dmg
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        run: |
+          mkdir -p release
+          find artifacts \( -name '*.zip' -o -name '*.dmg' \) -exec cp {} release/ \;
+          ls -lh release/
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          files: |
+            release/*.zip
+            release/*.dmg
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    # Only run on tag pushes, not workflow_dispatch.
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: artifacts
+
+      - name: Compute SHAs and version
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          ARM64_ZIP=$(find artifacts -name '*arm64*' -name '*.zip')
+          X64_ZIP=$(find artifacts -name '*x64*' -name '*.zip')
+
+          echo "sha256_arm64=$(shasum -a 256 "$ARM64_ZIP" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "sha256_x64=$(shasum -a 256 "$X64_ZIP" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Generate cask
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHA256_ARM64: ${{ steps.meta.outputs.sha256_arm64 }}
+          SHA256_X64: ${{ steps.meta.outputs.sha256_x64 }}
+        run: |
+          mkdir -p cask
+          cat > cask/mcpd-client.rb <<CASK
+          cask "mcpd-client" do
+            version "${VERSION}"
+
+            on_intel do
+              url "https://github.com/mozilla-ai/mcpd-client/releases/download/v#{version}/mcpd-client-#{version}-x64-mac.zip"
+              sha256 "${SHA256_X64}"
+            end
+            on_arm do
+              url "https://github.com/mozilla-ai/mcpd-client/releases/download/v#{version}/mcpd-client-#{version}-arm64-mac.zip"
+              sha256 "${SHA256_ARM64}"
+            end
+
+            name "mcpd Client"
+            desc "Desktop UI client for mcpd"
+            homepage "https://github.com/mozilla-ai/mcpd-client"
+
+            app "mcpd Client.app"
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-dr", "com.apple.quarantine", "#{appdir}/mcpd Client.app"]
+            end
+
+            zap trash: [
+              "~/Library/Application Support/mcpd Client",
+              "~/Library/Preferences/com.mcpd.client.plist",
+              "~/Library/Caches/com.mcpd.client",
+              "~/Library/Saved Application State/com.mcpd.client.savedState",
+            ]
+          end
+          CASK
+
+          echo "Generated cask:"
+          cat cask/mcpd-client.rb
+
+      - name: Push cask to homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          CONTENT=$(base64 -w 0 cask/mcpd-client.rb)
+          FILEPATH="Casks/mcpd-client.rb"
+
+          # Check if the file already exists to get its SHA (required for updates).
+          if gh api "repos/mozilla-ai/homebrew-tap/contents/${FILEPATH}" --jq '.sha' > /tmp/sha.txt 2>/tmp/gh-err.txt; then
+            EXISTING_SHA=$(cat /tmp/sha.txt)
+          elif grep -q "Not Found" /tmp/gh-err.txt; then
+            EXISTING_SHA=""
+          else
+            echo "Failed to check existing cask file:" >&2
+            cat /tmp/gh-err.txt >&2
+            exit 1
+          fi
+
+          if [ -n "$EXISTING_SHA" ]; then
+            gh api --method PUT "repos/mozilla-ai/homebrew-tap/contents/${FILEPATH}" \
+              -f message="Update mcpd-client cask to ${VERSION}" \
+              -f content="${CONTENT}" \
+              -f sha="${EXISTING_SHA}" \
+              -f "committer[name]=github-actions[bot]" \
+              -f "committer[email]=github-actions[bot]@users.noreply.github.com"
+          else
+            gh api --method PUT "repos/mozilla-ai/homebrew-tap/contents/${FILEPATH}" \
+              -f message="Add mcpd-client cask ${VERSION}" \
+              -f content="${CONTENT}" \
+              -f "committer[name]=github-actions[bot]" \
+              -f "committer[email]=github-actions[bot]@users.noreply.github.com"
+          fi
