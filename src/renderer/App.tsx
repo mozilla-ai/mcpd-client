@@ -22,6 +22,9 @@ import { DaemonStatus, RegistryServer } from "@shared/types";
 
 const { Header, Sider, Content } = Layout;
 
+// Height of the antd Sider collapse trigger, used to position the version label above it.
+const SIDER_COLLAPSE_TRIGGER_HEIGHT = 48;
+
 declare global {
   interface Window {
     electronAPI: {
@@ -253,7 +256,7 @@ const App: React.FC = () => {
           <div
             style={{
               position: "absolute",
-              bottom: 48,
+              bottom: SIDER_COLLAPSE_TRIGGER_HEIGHT,
               left: 0,
               right: 0,
               textAlign: "center",
