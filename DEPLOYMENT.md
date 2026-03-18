@@ -59,58 +59,20 @@ mcpd-setup filesystem --client claude
 mcpd-setup filesystem --client cursor
 ```
 
-## Exposing to External Services
+## Security
 
-When you need to connect external services to your local mcpd instance, you can tunnel the mcpd HTTP API directly.
+mcpd's HTTP API has no built-in authentication. By default, it binds to `localhost:8090`, which limits access to the local machine. Do not expose port 8090 externally without first configuring authentication.
 
-### Option 1: ngrok (Requires Account)
+mcpd supports [authentication and authorization plugins](https://mozilla-ai.github.io/mcpd/plugin-configuration/) that run as external gRPC binaries. Configure them in `.mcpd.toml`:
 
-```bash
-# Sign up at https://ngrok.com and authenticate
-ngrok config add-authtoken YOUR_AUTH_TOKEN
-
-# Create tunnel to mcpd
-ngrok http 8090
+```toml
+[[plugins.authentication]]
+name = "api-key-auth"
+required = true
+flows = ["request"]
 ```
 
-### Option 2: localtunnel (Simple & Free)
-
-```bash
-npx localtunnel --port 8090
-```
-
-## Example: Connecting External App to Local mcpd
-
-```javascript
-const MCPD_URL = process.env.MCPD_URL || "https://your-tunnel-url.example.com";
-
-async function callMCPTool(server, toolName, args) {
-  const response = await fetch(
-    `${MCPD_URL}/api/v1/servers/${server}/tools/${toolName}/call`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ arguments: args }),
-    },
-  );
-
-  return response.json();
-}
-
-// Example usage.
-const result = await callMCPTool("filesystem", "read_file", {
-  path: "/tmp/data.txt",
-});
-```
-
-## Security Considerations
-
-When exposing local services:
-
-1. **Use HTTPS** tunnels only
-2. **Restrict access** using mcpd's auth plugin support
-3. **Monitor usage** to prevent abuse
-4. **Consider deploying** mcpd to the cloud instead of tunneling
+See the [plugin documentation](https://mozilla-ai.github.io/mcpd/plugin-configuration/) and [plugin blog post](https://blog.mozilla.ai/mcpd-plugins-extend-your-agent-infrastructure-without-touching-your-code/) for available categories and SDKs.
 
 ## Quick Start Commands
 

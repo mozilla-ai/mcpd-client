@@ -47,10 +47,12 @@ function getConfigPath(client: string): string {
   return configs.linux;
 }
 
+const DEFAULT_MCPD_URL = 'http://localhost:8090';
+
 // Check if mcpd is running.
-async function isMcpdRunning(): Promise<boolean> {
+async function isMcpdRunning(baseUrl: string = DEFAULT_MCPD_URL): Promise<boolean> {
   try {
-    await axios.get('http://localhost:8090/api/v1/servers');
+    await axios.get(`${baseUrl}/api/v1/servers`);
     return true;
   } catch {
     return false;
@@ -58,9 +60,9 @@ async function isMcpdRunning(): Promise<boolean> {
 }
 
 // Get available servers from mcpd.
-async function getServers(): Promise<string[]> {
+async function getServers(baseUrl: string = DEFAULT_MCPD_URL): Promise<string[]> {
   try {
-    const response = await axios.get('http://localhost:8090/api/v1/servers');
+    const response = await axios.get(`${baseUrl}/api/v1/servers`);
     // Handle both array format and object format.
     if (Array.isArray(response.data)) {
       return response.data;
@@ -72,12 +74,12 @@ async function getServers(): Promise<string[]> {
 }
 
 // Setup a server for a specific client.
-async function setupServer(server: string, client: string, options: any) {
+async function setupServer(server: string, client: string, baseUrl: string) {
   const spinner = ora('Checking prerequisites...').start();
 
   try {
     // 1. Check if mcpd is running.
-    if (!await isMcpdRunning()) {
+    if (!await isMcpdRunning(baseUrl)) {
       spinner.fail('mcpd is not running');
       console.log(chalk.red('\nPlease start mcpd first:'));
       console.log(chalk.cyan('  mcpd daemon'));
@@ -87,7 +89,7 @@ async function setupServer(server: string, client: string, options: any) {
 
     // 2. Check if server exists.
     spinner.text = 'Checking server availability...';
-    const servers = await getServers();
+    const servers = await getServers(baseUrl);
     if (!servers.includes(server)) {
       spinner.fail(`Server '${server}' not found`);
       console.log(chalk.red('\nAvailable servers:'));
@@ -99,7 +101,7 @@ async function setupServer(server: string, client: string, options: any) {
     if (client === 'http') {
       spinner.succeed(`HTTP API info for ${server} server`);
 
-      const apiUrl = `http://localhost:8090/api/v1/servers/${server}/tools`;
+      const apiUrl = `${baseUrl}/api/v1/servers/${server}/tools`;
 
       console.log('\n' + chalk.green('mcpd HTTP API is available directly:'));
       console.log(chalk.gray(`\nAPI URL: ${apiUrl}`));
@@ -132,7 +134,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       };
     } else if (client === 'cursor') {
@@ -142,7 +144,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       };
     } else {
@@ -158,7 +160,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       });
     }
@@ -191,17 +193,17 @@ async function setupServer(server: string, client: string, options: any) {
 }
 
 // List available servers.
-async function listServers() {
+async function listServers(baseUrl: string = DEFAULT_MCPD_URL) {
   const spinner = ora('Fetching servers...').start();
 
   try {
-    if (!await isMcpdRunning()) {
+    if (!await isMcpdRunning(baseUrl)) {
       spinner.fail('mcpd is not running');
       console.log(chalk.red('\nPlease start mcpd first'));
       process.exit(1);
     }
 
-    const servers = await getServers();
+    const servers = await getServers(baseUrl);
     spinner.succeed(`Found ${servers.length} servers`);
 
     console.log('\n' + chalk.bold('Available mcpd Servers:'));
@@ -210,7 +212,7 @@ async function listServers() {
 
       // Try to get tools for each server.
       try {
-        const response = await axios.get(`http://localhost:8090/api/v1/servers/${server}/tools`);
+        const response = await axios.get(`${baseUrl}/api/v1/servers/${server}/tools`);
         const tools = response.data.tools || [];
         if (tools.length > 0) {
           console.log(chalk.gray(`    Tools: ${tools.slice(0, 3).map((t: any) => t.name).join(', ')}${tools.length > 3 ? '...' : ''}`));
@@ -241,7 +243,8 @@ program
 program
   .command('list')
   .description('List available mcpd servers')
-  .action(listServers);
+  .option('--url <url>', 'Custom mcpd URL', DEFAULT_MCPD_URL)
+  .action((options) => listServers(options.url));
 
 program
   .argument('[server]', 'Name of the mcpd server to set up')
@@ -251,9 +254,9 @@ program
   .action(async (server, options) => {
     if (!server) {
       // If no server specified, list available servers.
-      await listServers();
+      await listServers(options.url);
     } else {
-      await setupServer(server, options.client, options);
+      await setupServer(server, options.client, options.url);
     }
   });
 
