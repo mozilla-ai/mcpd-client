@@ -6,7 +6,7 @@ import ora from 'ora';
 import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
-import { spawn } from 'child_process';
+
 import axios from 'axios';
 import { fileURLToPath } from 'url';
 
@@ -111,103 +111,6 @@ async function setupServer(server: string, client: string, options: any) {
 
       console.log('\n' + chalk.yellow('Need STDIO for IDE integrations?'));
       console.log(chalk.cyan('  npx @mozilla-ai/mcpd-proxy'));
-      return;
-    }
-
-    if (client === 'tunnel' || client === 'cloudflare') {
-      // Start Cloudflare tunnel pointing at mcpd's HTTP API directly.
-      spinner.text = 'Starting Cloudflare tunnel...';
-
-      // Check if cloudflared is installed.
-      const checkCloudflared = spawn('which', ['cloudflared']);
-      let cloudflaredInstalled = false;
-
-      await new Promise((resolve) => {
-        checkCloudflared.on('exit', (code: number | null) => {
-          cloudflaredInstalled = code === 0;
-          resolve(undefined);
-        });
-      });
-
-      if (!cloudflaredInstalled) {
-        spinner.text = 'Installing cloudflared...';
-
-        const platform = process.platform;
-        let installCmd = '';
-
-        if (platform === 'darwin') {
-          installCmd = 'brew install cloudflared';
-          console.log(chalk.yellow('\nCloudflared not found. Installing via Homebrew...'));
-          console.log(chalk.gray('If this fails, install manually: brew install cloudflared'));
-        } else if (platform === 'linux') {
-          installCmd = 'curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/';
-          console.log(chalk.yellow('\nCloudflared not found. Installing...'));
-        } else {
-          spinner.fail('Cloudflared not found');
-          console.log(chalk.red('\nPlease install cloudflared manually:'));
-          console.log(chalk.cyan('  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation'));
-          return;
-        }
-
-        if (installCmd) {
-          await new Promise((resolve) => {
-            const install = spawn('sh', ['-c', installCmd]);
-            install.on('exit', resolve);
-          });
-        }
-      }
-
-      // Start the tunnel pointing at mcpd directly.
-      spinner.text = 'Creating public tunnel...';
-      const tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:8090']);
-
-      let tunnelUrl = '';
-
-      tunnel.stderr?.on('data', (data: Buffer) => {
-        const output = data.toString();
-
-        // Extract the tunnel URL from cloudflared output.
-        const urlMatch = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-        if (urlMatch && !tunnelUrl) {
-          tunnelUrl = urlMatch[0];
-          const fullUrl = `${tunnelUrl}/api/v1/servers/${server}/tools`;
-
-          spinner.succeed('Public tunnel created!');
-
-          console.log('\n' + chalk.green('Your mcpd API is now accessible from anywhere!'));
-          console.log(chalk.bold.cyan(`\nPublic URL: ${tunnelUrl}`));
-
-          console.log('\n' + chalk.bold('Test it:'));
-          console.log(chalk.cyan(`curl ${fullUrl}`));
-
-          console.log('\n' + chalk.bgRed.white(' IMPORTANT ') + chalk.red(' Keep this terminal open to maintain the tunnel'));
-          console.log(chalk.gray('Press Ctrl+C to stop the tunnel\n'));
-        }
-
-        if (output.includes('error') || output.includes('Error')) {
-          console.error(chalk.red(output));
-        }
-      });
-
-      tunnel.on('error', (error: Error) => {
-        spinner.fail('Failed to start tunnel');
-        console.error(chalk.red(error.message));
-      });
-
-      tunnel.on('exit', (code: number | null) => {
-        if (code !== 0 && !tunnelUrl) {
-          spinner.fail('Tunnel process exited unexpectedly');
-        }
-        console.log(chalk.yellow('\nTunnel closed'));
-      });
-
-      // Keep the process running.
-      process.on('SIGINT', () => {
-        console.log(chalk.yellow('\n\nShutting down tunnel...'));
-        tunnel.kill();
-        process.exit();
-      });
-
       return;
     }
 
@@ -342,7 +245,7 @@ program
 
 program
   .argument('[server]', 'Name of the mcpd server to set up')
-  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http, tunnel)', 'cursor')
+  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http)', 'cursor')
   .option('--url <url>', 'Custom mcpd URL', 'http://localhost:8090')
   .description('Set up an mcpd server for a specific client')
   .action(async (server, options) => {

@@ -63,27 +63,7 @@ mcpd-setup filesystem --client cursor
 
 When you need to connect external services to your local mcpd instance, you can tunnel the mcpd HTTP API directly.
 
-### Option 1: Cloudflare Tunnel (Recommended - Free, No Account)
-
-**One command setup:**
-
-```bash
-mcpd-setup filesystem --client tunnel
-```
-
-This will:
-
-- Automatically install cloudflared if not present
-- Create a public tunnel to the mcpd API (port 8090 by default)
-- Display the public URL
-
-Or manually:
-
-```bash
-cloudflared tunnel --url http://localhost:8090
-```
-
-### Option 2: ngrok (Requires Account)
+### Option 1: ngrok (Requires Account)
 
 ```bash
 # Sign up at https://ngrok.com and authenticate
@@ -93,7 +73,7 @@ ngrok config add-authtoken YOUR_AUTH_TOKEN
 ngrok http 8090
 ```
 
-### Option 3: localtunnel (Simple & Free)
+### Option 2: localtunnel (Simple & Free)
 
 ```bash
 npx localtunnel --port 8090
@@ -102,8 +82,7 @@ npx localtunnel --port 8090
 ## Example: Connecting External App to Local mcpd
 
 ```javascript
-const MCPD_URL =
-  process.env.MCPD_URL || "https://your-tunnel.trycloudflare.com";
+const MCPD_URL = process.env.MCPD_URL || "https://your-tunnel-url.example.com";
 
 async function callMCPTool(server, toolName, args) {
   const response = await fetch(
@@ -129,7 +108,7 @@ const result = await callMCPTool("filesystem", "read_file", {
 When exposing local services:
 
 1. **Use HTTPS** tunnels only
-2. **Restrict access** using mcpd's API key support
+2. **Restrict access** using mcpd's auth plugin support
 3. **Monitor usage** to prevent abuse
 4. **Consider deploying** mcpd to the cloud instead of tunneling
 
@@ -143,6 +122,4 @@ curl http://localhost:8090/api/v1/servers
 mcpd-setup filesystem --client claude
 mcpd-setup filesystem --client cursor
 
-# With Cloudflare Tunnel (no account needed)
-mcpd-setup filesystem --client tunnel
 ```
