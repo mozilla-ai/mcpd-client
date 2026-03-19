@@ -83,7 +83,6 @@ mcpd-setup memory --client cursor
 - **Claude Desktop** - Via mcpd-proxy STDIO bridge
 - **Windsurf** - Via mcpd-proxy STDIO bridge
 - **HTTP** - Direct access to mcpd HTTP API (port 8090)
-- **Tunnel** - Cloudflare Tunnel for external access
 
 ## Configuration Locations
 

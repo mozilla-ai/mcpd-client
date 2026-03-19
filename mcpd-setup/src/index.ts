@@ -6,7 +6,7 @@ import ora from 'ora';
 import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
-import { spawn } from 'child_process';
+
 import axios from 'axios';
 import { fileURLToPath } from 'url';
 
@@ -47,10 +47,12 @@ function getConfigPath(client: string): string {
   return configs.linux;
 }
 
+const DEFAULT_MCPD_URL = 'http://localhost:8090';
+
 // Check if mcpd is running.
-async function isMcpdRunning(): Promise<boolean> {
+async function isMcpdRunning(baseUrl: string = DEFAULT_MCPD_URL): Promise<boolean> {
   try {
-    await axios.get('http://localhost:8090/api/v1/servers');
+    await axios.get(`${baseUrl}/api/v1/servers`);
     return true;
   } catch {
     return false;
@@ -58,9 +60,9 @@ async function isMcpdRunning(): Promise<boolean> {
 }
 
 // Get available servers from mcpd.
-async function getServers(): Promise<string[]> {
+async function getServers(baseUrl: string = DEFAULT_MCPD_URL): Promise<string[]> {
   try {
-    const response = await axios.get('http://localhost:8090/api/v1/servers');
+    const response = await axios.get(`${baseUrl}/api/v1/servers`);
     // Handle both array format and object format.
     if (Array.isArray(response.data)) {
       return response.data;
@@ -72,12 +74,12 @@ async function getServers(): Promise<string[]> {
 }
 
 // Setup a server for a specific client.
-async function setupServer(server: string, client: string, options: any) {
+async function setupServer(server: string, client: string, baseUrl: string) {
   const spinner = ora('Checking prerequisites...').start();
 
   try {
     // 1. Check if mcpd is running.
-    if (!await isMcpdRunning()) {
+    if (!await isMcpdRunning(baseUrl)) {
       spinner.fail('mcpd is not running');
       console.log(chalk.red('\nPlease start mcpd first:'));
       console.log(chalk.cyan('  mcpd daemon'));
@@ -87,7 +89,7 @@ async function setupServer(server: string, client: string, options: any) {
 
     // 2. Check if server exists.
     spinner.text = 'Checking server availability...';
-    const servers = await getServers();
+    const servers = await getServers(baseUrl);
     if (!servers.includes(server)) {
       spinner.fail(`Server '${server}' not found`);
       console.log(chalk.red('\nAvailable servers:'));
@@ -99,7 +101,7 @@ async function setupServer(server: string, client: string, options: any) {
     if (client === 'http') {
       spinner.succeed(`HTTP API info for ${server} server`);
 
-      const apiUrl = `http://localhost:8090/api/v1/servers/${server}/tools`;
+      const apiUrl = `${baseUrl}/api/v1/servers/${server}/tools`;
 
       console.log('\n' + chalk.green('mcpd HTTP API is available directly:'));
       console.log(chalk.gray(`\nAPI URL: ${apiUrl}`));
@@ -111,103 +113,6 @@ async function setupServer(server: string, client: string, options: any) {
 
       console.log('\n' + chalk.yellow('Need STDIO for IDE integrations?'));
       console.log(chalk.cyan('  npx @mozilla-ai/mcpd-proxy'));
-      return;
-    }
-
-    if (client === 'tunnel' || client === 'cloudflare') {
-      // Start Cloudflare tunnel pointing at mcpd's HTTP API directly.
-      spinner.text = 'Starting Cloudflare tunnel...';
-
-      // Check if cloudflared is installed.
-      const checkCloudflared = spawn('which', ['cloudflared']);
-      let cloudflaredInstalled = false;
-
-      await new Promise((resolve) => {
-        checkCloudflared.on('exit', (code: number | null) => {
-          cloudflaredInstalled = code === 0;
-          resolve(undefined);
-        });
-      });
-
-      if (!cloudflaredInstalled) {
-        spinner.text = 'Installing cloudflared...';
-
-        const platform = process.platform;
-        let installCmd = '';
-
-        if (platform === 'darwin') {
-          installCmd = 'brew install cloudflared';
-          console.log(chalk.yellow('\nCloudflared not found. Installing via Homebrew...'));
-          console.log(chalk.gray('If this fails, install manually: brew install cloudflared'));
-        } else if (platform === 'linux') {
-          installCmd = 'curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/';
-          console.log(chalk.yellow('\nCloudflared not found. Installing...'));
-        } else {
-          spinner.fail('Cloudflared not found');
-          console.log(chalk.red('\nPlease install cloudflared manually:'));
-          console.log(chalk.cyan('  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation'));
-          return;
-        }
-
-        if (installCmd) {
-          await new Promise((resolve) => {
-            const install = spawn('sh', ['-c', installCmd]);
-            install.on('exit', resolve);
-          });
-        }
-      }
-
-      // Start the tunnel pointing at mcpd directly.
-      spinner.text = 'Creating public tunnel...';
-      const tunnel = spawn('cloudflared', ['tunnel', '--url', 'http://localhost:8090']);
-
-      let tunnelUrl = '';
-
-      tunnel.stderr?.on('data', (data: Buffer) => {
-        const output = data.toString();
-
-        // Extract the tunnel URL from cloudflared output.
-        const urlMatch = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-        if (urlMatch && !tunnelUrl) {
-          tunnelUrl = urlMatch[0];
-          const fullUrl = `${tunnelUrl}/api/v1/servers/${server}/tools`;
-
-          spinner.succeed('Public tunnel created!');
-
-          console.log('\n' + chalk.green('Your mcpd API is now accessible from anywhere!'));
-          console.log(chalk.bold.cyan(`\nPublic URL: ${tunnelUrl}`));
-
-          console.log('\n' + chalk.bold('Test it:'));
-          console.log(chalk.cyan(`curl ${fullUrl}`));
-
-          console.log('\n' + chalk.bgRed.white(' IMPORTANT ') + chalk.red(' Keep this terminal open to maintain the tunnel'));
-          console.log(chalk.gray('Press Ctrl+C to stop the tunnel\n'));
-        }
-
-        if (output.includes('error') || output.includes('Error')) {
-          console.error(chalk.red(output));
-        }
-      });
-
-      tunnel.on('error', (error: Error) => {
-        spinner.fail('Failed to start tunnel');
-        console.error(chalk.red(error.message));
-      });
-
-      tunnel.on('exit', (code: number | null) => {
-        if (code !== 0 && !tunnelUrl) {
-          spinner.fail('Tunnel process exited unexpectedly');
-        }
-        console.log(chalk.yellow('\nTunnel closed'));
-      });
-
-      // Keep the process running.
-      process.on('SIGINT', () => {
-        console.log(chalk.yellow('\n\nShutting down tunnel...'));
-        tunnel.kill();
-        process.exit();
-      });
-
       return;
     }
 
@@ -229,7 +134,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       };
     } else if (client === 'cursor') {
@@ -239,7 +144,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       };
     } else {
@@ -255,7 +160,7 @@ async function setupServer(server: string, client: string, options: any) {
         command: 'npx',
         args: ['@mozilla-ai/mcpd-proxy'],
         env: {
-          MCPD_ADDR: 'http://localhost:8090'
+          MCPD_ADDR: baseUrl
         }
       });
     }
@@ -288,17 +193,17 @@ async function setupServer(server: string, client: string, options: any) {
 }
 
 // List available servers.
-async function listServers() {
+async function listServers(baseUrl: string = DEFAULT_MCPD_URL) {
   const spinner = ora('Fetching servers...').start();
 
   try {
-    if (!await isMcpdRunning()) {
+    if (!await isMcpdRunning(baseUrl)) {
       spinner.fail('mcpd is not running');
       console.log(chalk.red('\nPlease start mcpd first'));
       process.exit(1);
     }
 
-    const servers = await getServers();
+    const servers = await getServers(baseUrl);
     spinner.succeed(`Found ${servers.length} servers`);
 
     console.log('\n' + chalk.bold('Available mcpd Servers:'));
@@ -307,7 +212,7 @@ async function listServers() {
 
       // Try to get tools for each server.
       try {
-        const response = await axios.get(`http://localhost:8090/api/v1/servers/${server}/tools`);
+        const response = await axios.get(`${baseUrl}/api/v1/servers/${server}/tools`);
         const tools = response.data.tools || [];
         if (tools.length > 0) {
           console.log(chalk.gray(`    Tools: ${tools.slice(0, 3).map((t: any) => t.name).join(', ')}${tools.length > 3 ? '...' : ''}`));
@@ -338,19 +243,20 @@ program
 program
   .command('list')
   .description('List available mcpd servers')
-  .action(listServers);
+  .option('--url <url>', 'Custom mcpd URL', DEFAULT_MCPD_URL)
+  .action((options) => listServers(options.url));
 
 program
   .argument('[server]', 'Name of the mcpd server to set up')
-  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http, tunnel)', 'cursor')
+  .option('-c, --client <client>', 'Client to configure (cursor, claude, windsurf, http)', 'cursor')
   .option('--url <url>', 'Custom mcpd URL', 'http://localhost:8090')
   .description('Set up an mcpd server for a specific client')
   .action(async (server, options) => {
     if (!server) {
       // If no server specified, list available servers.
-      await listServers();
+      await listServers(options.url);
     } else {
-      await setupServer(server, options.client, options);
+      await setupServer(server, options.client, options.url);
     }
   });
 

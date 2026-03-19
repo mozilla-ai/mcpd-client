@@ -38,7 +38,6 @@ Command-line tool for quick setup of MCP servers with various clients (Claude, C
   - STDIO via [`@mozilla-ai/mcpd-proxy`](https://github.com/mozilla-ai/mcpd-proxy) for IDE integrations (Claude Desktop, Cursor, etc.)
   - Direct mcpd HTTP API (default port 8090, configurable via `daemon.api.addr` in `.mcpd.toml`)
   - [`@mozilla-ai/mcpd`](https://github.com/mozilla-ai/mcpd-sdk-javascript) JavaScript/TypeScript SDK
-  - Cloudflare Tunnels for external access (no account needed)
 - **One-Click Client Setup**: Quick configuration for Claude, Cursor, and other MCP clients
 - **Export Configurations**: Generate configs for various platforms and tools
 
@@ -164,9 +163,6 @@ mcpd-setup filesystem --client windsurf
 
 # Show HTTP API info
 mcpd-setup filesystem --client http
-
-# Create public tunnel (for external services)
-mcpd-setup filesystem --client tunnel
 ```
 
 ### Manual Integration

@@ -59,79 +59,20 @@ mcpd-setup filesystem --client claude
 mcpd-setup filesystem --client cursor
 ```
 
-## Exposing to External Services
+## Security
 
-When you need to connect external services to your local mcpd instance, you can tunnel the mcpd HTTP API directly.
+mcpd's HTTP API has no built-in authentication. By default, it binds to `localhost:8090`, which limits access to the local machine. Do not expose port 8090 externally without first configuring authentication.
 
-### Option 1: Cloudflare Tunnel (Recommended - Free, No Account)
+mcpd supports [authentication and authorization plugins](https://mozilla-ai.github.io/mcpd/plugin-configuration/) that run as external gRPC binaries. Configure them in `.mcpd.toml`:
 
-**One command setup:**
-
-```bash
-mcpd-setup filesystem --client tunnel
+```toml
+[[plugins.authentication]]
+name = "api-key-auth"
+required = true
+flows = ["request"]
 ```
 
-This will:
-
-- Automatically install cloudflared if not present
-- Create a public tunnel to the mcpd API (port 8090 by default)
-- Display the public URL
-
-Or manually:
-
-```bash
-cloudflared tunnel --url http://localhost:8090
-```
-
-### Option 2: ngrok (Requires Account)
-
-```bash
-# Sign up at https://ngrok.com and authenticate
-ngrok config add-authtoken YOUR_AUTH_TOKEN
-
-# Create tunnel to mcpd
-ngrok http 8090
-```
-
-### Option 3: localtunnel (Simple & Free)
-
-```bash
-npx localtunnel --port 8090
-```
-
-## Example: Connecting External App to Local mcpd
-
-```javascript
-const MCPD_URL =
-  process.env.MCPD_URL || "https://your-tunnel.trycloudflare.com";
-
-async function callMCPTool(server, toolName, args) {
-  const response = await fetch(
-    `${MCPD_URL}/api/v1/servers/${server}/tools/${toolName}/call`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ arguments: args }),
-    },
-  );
-
-  return response.json();
-}
-
-// Example usage.
-const result = await callMCPTool("filesystem", "read_file", {
-  path: "/tmp/data.txt",
-});
-```
-
-## Security Considerations
-
-When exposing local services:
-
-1. **Use HTTPS** tunnels only
-2. **Restrict access** using mcpd's API key support
-3. **Monitor usage** to prevent abuse
-4. **Consider deploying** mcpd to the cloud instead of tunneling
+See the [plugin documentation](https://mozilla-ai.github.io/mcpd/plugin-configuration/) and [plugin blog post](https://blog.mozilla.ai/mcpd-plugins-extend-your-agent-infrastructure-without-touching-your-code/) for available categories and SDKs.
 
 ## Quick Start Commands
 
@@ -143,6 +84,4 @@ curl http://localhost:8090/api/v1/servers
 mcpd-setup filesystem --client claude
 mcpd-setup filesystem --client cursor
 
-# With Cloudflare Tunnel (no account needed)
-mcpd-setup filesystem --client tunnel
 ```
