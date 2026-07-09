@@ -1,7 +1,7 @@
 {
   "name": "@mozilla-ai/mcpd-client",
   "productName": "mcpd Client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
@@ -84,13 +84,13 @@
     "typescript-eslint": "^8.56.0",
     "webpack": "^5.105.0",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.5"
+    "webpack-dev-server": "^6.0.0"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
     "@iarna/toml": "^2.2.5",
     "@monaco-editor/react": "^4.7.0",
-    "@mozilla-ai/mcpd": "^0.1.0",
+    "@mozilla-ai/mcpd": "^0.1.4",
     "antd": "^5.27.0",
     "monaco-editor": "^0.52.2",
     "react": "^19.1.1",
